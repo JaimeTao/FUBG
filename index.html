@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>绝地求耕 - 道具进阶版</title>
+    <title>绝地求更 - 最终修正版</title>
     <style>
         body {
             margin: 0;
@@ -56,7 +56,6 @@
         #hp-display { top: 0; left: 0; color: #ff5555; }
         #gold-display { top: 0; right: 0; color: #FFD700; }
 
-        /* Buff 提示文字 */
         #buff-indicator {
             position: absolute;
             top: 50px; left: 10px;
@@ -79,10 +78,12 @@
             margin-bottom: 10px;
         }
         .intro-line.visible { opacity: 1; transform: translateY(0); }
+        
         #start-btn {
             margin-top: 40px; opacity: 0; transition: opacity 1s; pointer-events: none;
-            padding: 15px 40px; font-size: 20px; background: #d4a017;
+            padding: 15px 40px; font-size: 24px; background: #d4a017;
             color: #3e2723; border: 2px solid #fff; border-radius: 8px; font-weight: bold;
+            box-shadow: 0 0 15px #d4a017;
         }
         #start-btn.visible { opacity: 1; pointer-events: auto; }
 
@@ -144,7 +145,7 @@
         <div class="intro-line">东汉末年政权动荡，</div>
         <div class="intro-line">兵匪四起，民生凋敝。</div>
         <div class="intro-line" style="margin-top: 20px; color: #FFD700;">帮助老农守卫农田，</div>
-        <div class="intro-line" style="color: #FFD700;">不要让士破坏良田。</div>
+        <div class="intro-line" style="color: #FFD700;">不要让士兵抢走粮食。</div>
         <button id="start-btn" onclick="startGame()">绝地求耕</button>
     </div>
 
@@ -190,7 +191,7 @@
     const imageList = [
         'BG.png', 'famer_idle.png', 'enemy1.png', 'bullet1.png', 'scythe.png',
         'base.png', 'base2.png', 'straw.png', 'wheat01.png', 'juma.png', 'coin.png',
-        'powerup.png', 'gold_scythe.png', // 增加 powerup
+        'powerup.png', 'gold_scythe.png',
         'famer_attack.001.png', 'famer_attack.002.png', 'famer_attack.003.png',
         'famer_attack.004.png', 'famer_attack.005.png', 'famer_attack.006.png'
     ];
@@ -206,6 +207,9 @@
 
     // --- 常量 ---
     const GRID_SIZE = 40;
+    // 修改点：视觉渲染尺寸比碰撞网格稍大，增加体积感
+    const VISUAL_SIZE = 52; 
+
     const COLS = 9; const ROWS = 16; 
     
     // --- 输入 ---
@@ -316,7 +320,8 @@
             } else {
                 img = assets['famer_idle.png'];
             }
-            if (img) ctx.drawImage(img, -GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE);
+            // 修改点：绘制尺寸变大 (VISUAL_SIZE)
+            if (img) ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
             else { ctx.fillStyle = 'blue'; ctx.fillRect(-GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE); }
             ctx.restore();
         }
@@ -330,19 +335,43 @@
             this.shootTimer = Math.random() * 200;
         }
         update() {
-            this.y += this.speed;
-            this.row = Math.floor(this.y / GRID_SIZE);
+            let nextY = this.y + this.speed;
+            
+            // 修改点：敌人移动前检测障碍物
+            let collision = false;
+            let myRect = {x: this.x, y: nextY, w: this.width, h: this.height};
+            
+            // 简单的阻挡检测：如果下一个位置与任何障碍物重叠，就不走
+            for(let o of obstacles) {
+                if (isColliding(myRect, o)) {
+                    collision = true;
+                    break;
+                }
+            }
+
+            if (!collision) {
+                this.y = nextY;
+                this.row = Math.floor(this.y / GRID_SIZE);
+            }
+            // 即使被阻挡，依然可以射击
+            
             this.shootTimer--;
             if (this.shootTimer <= 0) {
                 spawnBullet(this.x + GRID_SIZE/2, this.y + GRID_SIZE);
                 this.shootTimer = 150 + Math.random() * 100;
             }
+            
+            // 农田区域判定
             if (this.row >= 13 && this.col >= 3 && this.col <= 5) gameOver();
             if (this.y > canvas.height) this.markedForDeletion = true;
         }
         draw() {
             let img = assets['enemy1.png'];
-            if (img) ctx.drawImage(img, this.x, this.y, this.width, this.height);
+            // 修改点：绘制尺寸变大，增加压迫感
+            if (img) {
+                let offset = (VISUAL_SIZE - GRID_SIZE) / 2;
+                ctx.drawImage(img, this.x - offset, this.y - offset, VISUAL_SIZE, VISUAL_SIZE);
+            }
             else { ctx.fillStyle = 'red'; ctx.fillRect(this.x, this.y, this.width, this.height); }
         }
     }
@@ -366,8 +395,6 @@
             let imgName = this.type === 'scythe' ? (this.isPiercing ? 'gold_scythe.png' : 'scythe.png') : 'bullet1.png';
             let img = assets[imgName];
             if (!img && this.isPiercing) img = assets['scythe.png'];
-
-            // 修复箭矢比例: 12宽, 30高
             if (this.type === 'arrow') {
                 if(img) ctx.drawImage(img, -6, -15, 12, 30);
                 else { ctx.fillStyle = 'white'; ctx.fillRect(-3, -10, 6, 20); }
@@ -388,17 +415,14 @@
         }
         update() {
             this.timer += 0.1;
-            this.offsetY = Math.sin(this.timer) * 5; // 上下浮动
+            this.offsetY = Math.sin(this.timer) * 5; 
         }
         draw() {
             let img = assets['powerup.png'];
             let drawY = this.y + this.offsetY;
             if(img) ctx.drawImage(img, this.x - 15, drawY - 15, 30, 30);
             else { ctx.fillStyle = '#e040fb'; ctx.beginPath(); ctx.arc(this.x, drawY, 10, 0, Math.PI*2); ctx.fill(); }
-            
-            ctx.font = '10px "SimHei"';
-            ctx.fillStyle = '#ff00ff';
-            ctx.textAlign = 'center';
+            ctx.font = '10px "SimHei"'; ctx.fillStyle = '#ff00ff'; ctx.textAlign = 'center';
             ctx.fillText("穿透攻击", this.x, drawY + 25);
         }
     }
@@ -407,8 +431,7 @@
         constructor(col, row, type, widthTiles = 1, heightTiles = 1) {
             super(col, row, GRID_SIZE * widthTiles, GRID_SIZE * heightTiles);
             this.type = type; 
-            this.widthTiles = widthTiles;
-            this.heightTiles = heightTiles;
+            this.widthTiles = widthTiles; this.heightTiles = heightTiles;
             this.hp = 3;
             if (type === 'juma' || type === 'base') this.hp = 999; 
         }
@@ -423,7 +446,6 @@
             if (this.type === 'straw') imgName = 'straw.png';
             else if (this.type === 'juma') imgName = 'juma.png';
             else if (this.type === 'base') imgName = gameState.baseLevel === 1 ? 'base.png' : 'base2.png';
-
             let img = assets[imgName];
             if (img) ctx.drawImage(img, this.x, this.y, this.width, this.height);
             else { ctx.fillStyle = 'brown'; ctx.fillRect(this.x, this.y, this.width, this.height); }
@@ -444,8 +466,6 @@
                 this.timer++;
                 if (this.timer > 30) this.state = 'fly';
             } else {
-                // 飞向新的大仓库中心 (右下角占据3x3)
-                // Base is at COLS-3, ROWS-3. Center is:
                 let tx = (COLS - 3 + 1.5) * GRID_SIZE;
                 let ty = (ROWS - 3 + 1.5) * GRID_SIZE;
                 let dx = tx - this.x; let dy = ty - this.y;
@@ -477,7 +497,7 @@
         document.getElementById('hp-display').innerText = "❤️ 生命: 10";
         document.getElementById('gold-display').innerText = "💰 粮食: 0";
 
-        // 农田保护圈 (Row 12-15)
+        // 农田保护圈
         obstacles.push(new Obstacle(3, 12, 'juma'));
         obstacles.push(new Obstacle(4, 12, 'juma'));
         obstacles.push(new Obstacle(5, 12, 'juma'));
@@ -485,11 +505,9 @@
             obstacles.push(new Obstacle(2, r, 'juma'));
             obstacles.push(new Obstacle(6, r, 'juma'));
         }
-        
-        // 仓库巨大化 (3x3), 位置在右下角 (COLS-3, ROWS-3)
+        // 仓库
         obstacles.push(new Obstacle(COLS-3, ROWS-3, 'base', 3, 3));
-
-        // 随机草堆
+        // 草堆
         for (let r = 2; r < 10; r++) {
             for (let c = 0; c < COLS; c++) {
                 if(c===4 && r===10) continue;
@@ -512,12 +530,9 @@
     function triggerAttack() {
         if (!player.isAttacking) { player.isAttacking = true; player.attackFrame = 0; player.attackTimer = 0; }
     }
-    
-    // 碰撞检查需要考虑物体的宽度和高度（因为仓库变大了）
     function canWalk(col, row) {
         if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return false;
         for (let o of obstacles) {
-            // 检查该点是否在障碍物的格子范围内
             if (col >= o.col && col < o.col + o.widthTiles &&
                 row >= o.row && row < o.row + o.heightTiles) {
                 return false;
@@ -527,62 +542,46 @@
     }
 
     function checkCollisions() {
-        // 1. 玩家拾取道具
         let pRect = { x: player.x, y: player.y, w: GRID_SIZE, h: GRID_SIZE };
         items.forEach(it => {
             let itRect = { x: it.x - 15, y: it.y - 15, w: 30, h: 30 };
             if (isColliding(pRect, itRect)) {
                 it.markedForDeletion = true;
                 player.hasPiercing = true;
-                player.piercingTimer = 600; // 10秒
+                player.piercingTimer = 600; 
             }
         });
         items = items.filter(i => !i.markedForDeletion);
 
-        // 2. 投射物
         projectiles.forEach(p => {
             if (p.markedForDeletion) return;
             let rect1 = { x: p.x - 10, y: p.y - 10, w: 20, h: 20 };
             
             if (p.type === 'scythe') {
-                // 镰刀 vs 敌人
                 enemies.forEach(e => {
                     if (isColliding(rect1, e)) {
                         e.markedForDeletion = true;
-                        // 修改：如果穿透，不销毁镰刀
                         if (!p.isPiercing) p.markedForDeletion = true;
-                        
-                        // 掉落逻辑
-                        if (Math.random() < 0.05) { // 5% 掉道具
+                        if (Math.random() < 0.05) { 
                             items.push(new PowerUp(e.x + GRID_SIZE/2, e.y + GRID_SIZE/2));
                         } else {
                             coins.push(new Coin(e.x + GRID_SIZE/2, e.y + GRID_SIZE/2));
                         }
                     }
                 });
-                
-                // 镰刀 vs 阻挡物 (仅草堆)
                 obstacles.forEach(o => {
                     if (o.type === 'straw' && isColliding(rect1, o)) {
-                        // 修改：如果穿透，不造成伤害也不销毁
-                        if (!p.isPiercing) {
-                            o.hit();
-                            p.markedForDeletion = true;
-                        }
+                        if (!p.isPiercing) { o.hit(); p.markedForDeletion = true; }
                     }
                 });
             } else {
-                // 箭矢 logic
-                let pRect = { x: player.x, y: player.y, w: GRID_SIZE, h: GRID_SIZE };
                 if (isColliding(rect1, pRect)) {
                     p.markedForDeletion = true;
                     player.hp--;
                     document.getElementById('hp-display').innerText = "❤️ 生命: " + player.hp;
                     if (player.hp <= 0) gameOver();
                 }
-                obstacles.forEach(o => {
-                    if (isColliding(rect1, o)) p.markedForDeletion = true;
-                });
+                obstacles.forEach(o => { if (isColliding(rect1, o)) p.markedForDeletion = true; });
             }
         });
     }
@@ -597,8 +596,7 @@
     function collectCoin() {
         gameState.score += 10;
         document.getElementById('gold-display').innerText = "💰 粮食: " + gameState.score;
-        baseEffects.scale = 1.1; 
-        baseEffects.brightness = 150;
+        baseEffects.scale = 1.1; baseEffects.brightness = 150;
         if (gameState.score >= gameState.upgradeThreshold && gameState.baseLevel === 1) {
             gameState.baseLevel = 2; gameState.upgradeThreshold *= 2; 
         }
@@ -614,11 +612,9 @@
         if (!gameState.running) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 背景
         if (assets['BG.png']) ctx.drawImage(assets['BG.png'], 0, 0, canvas.width, canvas.height);
         else { ctx.fillStyle = '#4e342e'; ctx.fillRect(0,0,canvas.width, canvas.height); }
 
-        // 农田
         for(let r=13; r<ROWS; r++){
             for(let c=3; c<=5; c++){
                 let img = assets['wheat01.png'];
@@ -626,13 +622,13 @@
             }
         }
 
-        // 实体更新
         obstacles = obstacles.filter(o => !o.markedForDeletion);
         obstacles.forEach(o => o.draw());
 
         items.forEach(i => { i.update(); i.draw(); });
 
-        if (Math.random() < 0.005) enemies.push(new Enemy());
+        // 修改点：敌人数量增加 (概率 0.005 -> 0.007)
+        if (Math.random() < 0.007) enemies.push(new Enemy());
         enemies = enemies.filter(e => !e.markedForDeletion);
         enemies.forEach(e => { e.update(); e.draw(); });
 
@@ -647,14 +643,12 @@
 
         checkCollisions();
 
-        // 仓库特效
         if (baseEffects.scale > 1) baseEffects.scale -= 0.01;
         if (baseEffects.brightness > 100) baseEffects.brightness -= 2;
         
         let baseObj = obstacles.find(o => o.type === 'base');
         if (baseObj) {
             ctx.save();
-            // 仓库中心点: baseObj.x + (3*40)/2 = baseObj.x + 60
             ctx.translate(baseObj.x + baseObj.width/2, baseObj.y + baseObj.height/2);
             ctx.scale(baseEffects.scale, baseEffects.scale);
             ctx.filter = `brightness(${baseEffects.brightness}%)`;
