@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>绝地求耕 - 战术升级版</title>
+    <title>绝地求耕 - 特效修复版</title>
     <style>
         body {
             margin: 0;
@@ -63,8 +63,12 @@
             font-weight: bold;
             display: none;
             text-shadow: 1px 1px 2px black;
+            font-size: 18px;
+            animation: pulse 1s infinite;
         }
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
 
+        /* 剧情开场 */
         #intro-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: black;
@@ -86,6 +90,7 @@
         }
         #start-btn.visible { opacity: 1; pointer-events: auto; }
 
+        /* 游戏结束 */
         #game-over-screen {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center;
@@ -96,6 +101,7 @@
             color: #3e2723; border: 2px solid #fff; border-radius: 8px; font-weight: bold; cursor: pointer;
         }
 
+        /* 控制器 */
         #controls {
             position: absolute; bottom: 20px; left: 0; width: 100%; height: 160px;
             pointer-events: none; z-index: 10;
@@ -188,7 +194,7 @@
     const imageList = [
         'BG.png', 'famer_idle.png', 'enemy1.png', 'bullet1.png', 'scythe.png',
         'base.png', 'base2.png', 'straw.png', 'wheat01.png', 'juma.png', 'coin.png',
-        'powerup.png', 'gold_scythe.png',
+        'powerup.png', // 确保这个图片存在
         'famer_attack.001.png', 'famer_attack.002.png', 'famer_attack.003.png',
         'famer_attack.004.png', 'famer_attack.005.png', 'famer_attack.006.png'
     ];
@@ -307,17 +313,19 @@
             ctx.translate(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2);
             ctx.rotate(this.direction * Math.PI / 2);
             
-            // 穿透状态特效：描边 + 闪烁
+            // --- 修复特效实现 ---
             if (this.hasPiercing) {
-                // 1. 描边 (Glow)
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = "gold";
-                
-                // 2. 闪烁 (最后5秒 = 300帧)
+                // 1. 描边光晕 (Shadow Glow)
+                // 必须在 drawImage 之前设置 shadow
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = "rgba(255, 215, 0, 0.8)"; // 金色
+
+                // 2. 倒计时明度闪烁 (Brightness Flash)
+                // 最后 5 秒 (300 帧)，每 10 帧闪烁一次
                 if (this.piercingTimer < 300) {
-                    // 每0.1秒闪一次
-                    if (Math.floor(Date.now() / 100) % 2 === 0) {
-                        ctx.filter = "brightness(200%)";
+                    // 利用 Timer 取余数制造闪烁节奏
+                    if (Math.floor(this.piercingTimer / 5) % 2 === 0) {
+                        ctx.filter = "brightness(300%)"; // 高亮闪烁
                     }
                 }
             }
@@ -333,7 +341,8 @@
             }
             if (img) ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
             else { ctx.fillStyle = 'blue'; ctx.fillRect(-GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE); }
-            ctx.restore();
+            
+            ctx.restore(); // 恢复状态，避免影响其他物体绘制
         }
     }
 
@@ -389,10 +398,23 @@
             ctx.save();
             ctx.translate(this.x, this.y);
             ctx.rotate(this.angle);
-            // 修改点：穿透镰刀使用 powerup.png 作为飞行物
-            let imgName = this.type === 'scythe' ? (this.isPiercing ? 'powerup.png' : 'scythe.png') : 'bullet1.png';
+            
+            // --- 修复投掷物换图逻辑 ---
+            let imgName = 'bullet1.png'; // 默认为箭矢
+            
+            if (this.type === 'scythe') {
+                // 如果是镰刀，检查是否穿透
+                if (this.isPiercing) {
+                    imgName = 'powerup.png'; // 穿透状态下使用 powerup.png
+                } else {
+                    imgName = 'scythe.png';
+                }
+            }
+
             let img = assets[imgName];
-            if (!img && this.isPiercing) img = assets['scythe.png'];
+            // 容错: 找不到图就用普通镰刀
+            if (!img && this.type === 'scythe') img = assets['scythe.png'];
+
             if (this.type === 'arrow') {
                 if(img) ctx.drawImage(img, -6, -15, 12, 30);
                 else { ctx.fillStyle = 'white'; ctx.fillRect(-3, -10, 6, 20); }
@@ -431,13 +453,12 @@
             this.type = type; 
             this.widthTiles = widthTiles; this.heightTiles = heightTiles;
             
-            // 修改点：拒马血量 = 5
             if (type === 'juma') this.hp = 5;
             else if (type === 'base') this.hp = 999;
-            else this.hp = 3; // straw
+            else this.hp = 3; 
         }
         hit() {
-            if (this.type === 'base') return; // 基地无敌
+            if (this.type === 'base') return; 
             this.hp--;
             if (this.hp <= 0) this.markedForDeletion = true;
         }
@@ -558,7 +579,6 @@
                 enemies.forEach(e => {
                     if (isColliding(rect1, e)) {
                         e.markedForDeletion = true;
-                        // 修改点：穿透攻击不销毁镰刀
                         if (!p.isPiercing) p.markedForDeletion = true;
                         if (Math.random() < 0.05) { 
                             items.push(new PowerUp(e.x + GRID_SIZE/2, e.y + GRID_SIZE/2));
@@ -569,8 +589,6 @@
                 });
                 obstacles.forEach(o => {
                     if (isColliding(rect1, o)) {
-                        // 修改点：如果是穿透攻击，什么都不发生(无视)
-                        // 如果是普通攻击，才造成伤害并销毁
                         if (!p.isPiercing) { 
                             o.hit(); 
                             p.markedForDeletion = true; 
