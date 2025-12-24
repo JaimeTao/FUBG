@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>绝地求更 - 最终修正版</title>
+    <title>绝地求耕 - 战术升级版</title>
     <style>
         body {
             margin: 0;
@@ -65,7 +65,6 @@
             text-shadow: 1px 1px 2px black;
         }
 
-        /* 剧情开场 */
         #intro-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: black;
@@ -87,7 +86,6 @@
         }
         #start-btn.visible { opacity: 1; pointer-events: auto; }
 
-        /* 游戏结束 */
         #game-over-screen {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center;
@@ -98,7 +96,6 @@
             color: #3e2723; border: 2px solid #fff; border-radius: 8px; font-weight: bold; cursor: pointer;
         }
 
-        /* 控制器 */
         #controls {
             position: absolute; bottom: 20px; left: 0; width: 100%; height: 160px;
             pointer-events: none; z-index: 10;
@@ -207,9 +204,7 @@
 
     // --- 常量 ---
     const GRID_SIZE = 40;
-    // 修改点：视觉渲染尺寸比碰撞网格稍大，增加体积感
     const VISUAL_SIZE = 52; 
-
     const COLS = 9; const ROWS = 16; 
     
     // --- 输入 ---
@@ -311,6 +306,22 @@
             ctx.save();
             ctx.translate(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2);
             ctx.rotate(this.direction * Math.PI / 2);
+            
+            // 穿透状态特效：描边 + 闪烁
+            if (this.hasPiercing) {
+                // 1. 描边 (Glow)
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = "gold";
+                
+                // 2. 闪烁 (最后5秒 = 300帧)
+                if (this.piercingTimer < 300) {
+                    // 每0.1秒闪一次
+                    if (Math.floor(Date.now() / 100) % 2 === 0) {
+                        ctx.filter = "brightness(200%)";
+                    }
+                }
+            }
+
             let img;
             if (this.isAttacking) {
                 let frameIndex = Math.min(this.attackFrame, 6);
@@ -320,7 +331,6 @@
             } else {
                 img = assets['famer_idle.png'];
             }
-            // 修改点：绘制尺寸变大 (VISUAL_SIZE)
             if (img) ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
             else { ctx.fillStyle = 'blue'; ctx.fillRect(-GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE); }
             ctx.restore();
@@ -336,38 +346,25 @@
         }
         update() {
             let nextY = this.y + this.speed;
-            
-            // 修改点：敌人移动前检测障碍物
             let collision = false;
             let myRect = {x: this.x, y: nextY, w: this.width, h: this.height};
-            
-            // 简单的阻挡检测：如果下一个位置与任何障碍物重叠，就不走
             for(let o of obstacles) {
-                if (isColliding(myRect, o)) {
-                    collision = true;
-                    break;
-                }
+                if (isColliding(myRect, o)) { collision = true; break; }
             }
-
             if (!collision) {
                 this.y = nextY;
                 this.row = Math.floor(this.y / GRID_SIZE);
             }
-            // 即使被阻挡，依然可以射击
-            
             this.shootTimer--;
             if (this.shootTimer <= 0) {
                 spawnBullet(this.x + GRID_SIZE/2, this.y + GRID_SIZE);
                 this.shootTimer = 150 + Math.random() * 100;
             }
-            
-            // 农田区域判定
             if (this.row >= 13 && this.col >= 3 && this.col <= 5) gameOver();
             if (this.y > canvas.height) this.markedForDeletion = true;
         }
         draw() {
             let img = assets['enemy1.png'];
-            // 修改点：绘制尺寸变大，增加压迫感
             if (img) {
                 let offset = (VISUAL_SIZE - GRID_SIZE) / 2;
                 ctx.drawImage(img, this.x - offset, this.y - offset, VISUAL_SIZE, VISUAL_SIZE);
@@ -392,7 +389,8 @@
             ctx.save();
             ctx.translate(this.x, this.y);
             ctx.rotate(this.angle);
-            let imgName = this.type === 'scythe' ? (this.isPiercing ? 'gold_scythe.png' : 'scythe.png') : 'bullet1.png';
+            // 修改点：穿透镰刀使用 powerup.png 作为飞行物
+            let imgName = this.type === 'scythe' ? (this.isPiercing ? 'powerup.png' : 'scythe.png') : 'bullet1.png';
             let img = assets[imgName];
             if (!img && this.isPiercing) img = assets['scythe.png'];
             if (this.type === 'arrow') {
@@ -432,14 +430,16 @@
             super(col, row, GRID_SIZE * widthTiles, GRID_SIZE * heightTiles);
             this.type = type; 
             this.widthTiles = widthTiles; this.heightTiles = heightTiles;
-            this.hp = 3;
-            if (type === 'juma' || type === 'base') this.hp = 999; 
+            
+            // 修改点：拒马血量 = 5
+            if (type === 'juma') this.hp = 5;
+            else if (type === 'base') this.hp = 999;
+            else this.hp = 3; // straw
         }
         hit() {
-            if (this.type === 'straw') {
-                this.hp--;
-                if (this.hp <= 0) this.markedForDeletion = true;
-            }
+            if (this.type === 'base') return; // 基地无敌
+            this.hp--;
+            if (this.hp <= 0) this.markedForDeletion = true;
         }
         draw() {
             let imgName = '';
@@ -477,7 +477,6 @@
         draw() {
             let img = assets['coin.png'];
             if(img) ctx.drawImage(img, this.x - 10, this.y - 10, 20, 20);
-            else { ctx.fillStyle = 'gold'; ctx.beginPath(); ctx.arc(this.x, this.y, 8, 0, Math.PI*2); ctx.fill(); }
         }
     }
 
@@ -505,9 +504,7 @@
             obstacles.push(new Obstacle(2, r, 'juma'));
             obstacles.push(new Obstacle(6, r, 'juma'));
         }
-        // 仓库
         obstacles.push(new Obstacle(COLS-3, ROWS-3, 'base', 3, 3));
-        // 草堆
         for (let r = 2; r < 10; r++) {
             for (let c = 0; c < COLS; c++) {
                 if(c===4 && r===10) continue;
@@ -561,6 +558,7 @@
                 enemies.forEach(e => {
                     if (isColliding(rect1, e)) {
                         e.markedForDeletion = true;
+                        // 修改点：穿透攻击不销毁镰刀
                         if (!p.isPiercing) p.markedForDeletion = true;
                         if (Math.random() < 0.05) { 
                             items.push(new PowerUp(e.x + GRID_SIZE/2, e.y + GRID_SIZE/2));
@@ -570,8 +568,13 @@
                     }
                 });
                 obstacles.forEach(o => {
-                    if (o.type === 'straw' && isColliding(rect1, o)) {
-                        if (!p.isPiercing) { o.hit(); p.markedForDeletion = true; }
+                    if (isColliding(rect1, o)) {
+                        // 修改点：如果是穿透攻击，什么都不发生(无视)
+                        // 如果是普通攻击，才造成伤害并销毁
+                        if (!p.isPiercing) { 
+                            o.hit(); 
+                            p.markedForDeletion = true; 
+                        }
                     }
                 });
             } else {
@@ -627,7 +630,6 @@
 
         items.forEach(i => { i.update(); i.draw(); });
 
-        // 修改点：敌人数量增加 (概率 0.005 -> 0.007)
         if (Math.random() < 0.007) enemies.push(new Enemy());
         enemies = enemies.filter(e => !e.markedForDeletion);
         enemies.forEach(e => { e.update(); e.draw(); });
