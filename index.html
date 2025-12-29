@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>绝地求耕 - 特效修复版</title>
+    <title>绝地求耕 - 完美手感版</title>
     <style>
         body {
             margin: 0;
@@ -90,6 +90,21 @@
         }
         #start-btn.visible { opacity: 1; pointer-events: auto; }
 
+        /* 跳过按钮 */
+        #skip-btn {
+            position: absolute;
+            top: 20px; right: 20px;
+            padding: 8px 15px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #fff;
+            border-radius: 20px;
+            cursor: pointer;
+            z-index: 60;
+        }
+        #skip-btn:hover { background: rgba(255, 255, 255, 0.4); }
+
         /* 游戏结束 */
         #game-over-screen {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -145,6 +160,7 @@
     </div>
 
     <div id="intro-screen">
+        <button id="skip-btn" onclick="startGame()">跳过 >></button>
         <div class="intro-line">东汉末年政权动荡，</div>
         <div class="intro-line">兵匪四起，民生凋敝。</div>
         <div class="intro-line" style="margin-top: 20px; color: #FFD700;">帮助老农守卫农田，</div>
@@ -172,6 +188,9 @@
 </div>
 
 <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
     // --- 剧情动画 ---
     window.onload = function() {
         const lines = document.querySelectorAll('.intro-line');
@@ -185,16 +204,13 @@
         preloadAssets();
     };
 
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    
     // --- 资源加载 ---
     const assets = {};
     let loadedCount = 0;
     const imageList = [
         'BG.png', 'famer_idle.png', 'enemy1.png', 'bullet1.png', 'scythe.png',
         'base.png', 'base2.png', 'straw.png', 'wheat01.png', 'juma.png', 'coin.png',
-        'powerup.png', // 确保这个图片存在
+        'powerup.png', 'gold_scythe.png',
         'famer_attack.001.png', 'famer_attack.002.png', 'famer_attack.003.png',
         'famer_attack.004.png', 'famer_attack.005.png', 'famer_attack.006.png'
     ];
@@ -213,12 +229,18 @@
     const VISUAL_SIZE = 52; 
     const COLS = 9; const ROWS = 16; 
     
-    // --- 输入 ---
+    // --- 输入处理 (修复版) ---
     const input = { up: false, down: false, left: false, right: false, attack: false };
+    
     window.setInput = (key, val) => { 
         input[key] = val; 
-        if(key === 'attack' && val === true && player && !player.isAttacking) triggerAttack();
+        // 触摸屏攻击
+        if(key === 'attack' && val === true && player && !player.isAttacking) {
+            triggerAttack();
+        }
     };
+
+    // 键盘监听 (修复空格键无效问题)
     window.addEventListener('keydown', e => {
         if(e.repeat) return;
         switch(e.code) {
@@ -226,21 +248,38 @@
             case 'ArrowDown': case 'KeyS': setInput('down', true); break;
             case 'ArrowLeft': case 'KeyA': setInput('left', true); break;
             case 'ArrowRight': case 'KeyD': setInput('right', true); break;
-            case 'Space': setInput('attack', true); break;
+            case 'Space': case 'Enter': // 增加 Enter 键支持
+                if(player && !player.isAttacking) triggerAttack(); 
+                break;
         }
     });
+    
     window.addEventListener('keyup', e => {
         switch(e.code) {
             case 'ArrowUp': case 'KeyW': setInput('up', false); break;
             case 'ArrowDown': case 'KeyS': setInput('down', false); break;
             case 'ArrowLeft': case 'KeyA': setInput('left', false); break;
             case 'ArrowRight': case 'KeyD': setInput('right', false); break;
-            case 'Space': setInput('attack', false); break;
         }
     });
 
     // --- 游戏状态 ---
     let gameState = { running: false, score: 0, gameOver: false, baseLevel: 1, upgradeThreshold: 100 };
+
+    // --- 武器逻辑 ---
+    function spawnPlayerAttack(player) {
+        let dx = 0, dy = 0; let speed = 8;
+        if (player.direction === 0) dy = -speed;
+        if (player.direction === 1) dx = speed;
+        if (player.direction === 2) dy = speed;
+        if (player.direction === 3) dx = -speed;
+        
+        let spriteName = player.hasPiercing ? 'powerup.png' : 'scythe.png';
+        projectiles.push(new Projectile(
+            player.x + GRID_SIZE/2, player.y + GRID_SIZE/2, 
+            dx, dy, 'scythe', player.hasPiercing, spriteName
+        ));
+    }
 
     // --- 实体类 ---
     class Entity {
@@ -277,7 +316,7 @@
                 this.attackTimer++;
                 if (this.attackTimer % 5 === 0) { 
                     this.attackFrame++;
-                    if (this.attackFrame === 4) spawnScythe();
+                    if (this.attackFrame === 4) spawnPlayerAttack(this);
                     if (this.attackFrame > 6) { this.isAttacking = false; this.attackFrame = 0; }
                 }
                 return;
@@ -313,20 +352,10 @@
             ctx.translate(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2);
             ctx.rotate(this.direction * Math.PI / 2);
             
-            // --- 修复特效实现 ---
             if (this.hasPiercing) {
-                // 1. 描边光晕 (Shadow Glow)
-                // 必须在 drawImage 之前设置 shadow
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = "rgba(255, 215, 0, 0.8)"; // 金色
-
-                // 2. 倒计时明度闪烁 (Brightness Flash)
-                // 最后 5 秒 (300 帧)，每 10 帧闪烁一次
+                ctx.shadowBlur = 20; ctx.shadowColor = "rgba(255, 215, 0, 1)"; 
                 if (this.piercingTimer < 300) {
-                    // 利用 Timer 取余数制造闪烁节奏
-                    if (Math.floor(this.piercingTimer / 5) % 2 === 0) {
-                        ctx.filter = "brightness(300%)"; // 高亮闪烁
-                    }
+                    if (Math.floor(this.piercingTimer / 5) % 2 === 0) ctx.filter = "brightness(250%)";
                 }
             }
 
@@ -341,56 +370,167 @@
             }
             if (img) ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
             else { ctx.fillStyle = 'blue'; ctx.fillRect(-GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE); }
-            
-            ctx.restore(); // 恢复状态，避免影响其他物体绘制
+            ctx.restore();
         }
     }
 
+    // --- 敌人AI重构版 ---
     class Enemy extends Entity {
         constructor() {
             let c = Math.floor(Math.random() * COLS);
             super(c, -1, GRID_SIZE, GRID_SIZE);
-            this.speed = 0.5 + Math.random() * 0.5;
+            this.moveSpeed = 0.6; // 修改点：移动速度减慢 (2 -> 0.6)
             this.shootTimer = Math.random() * 200;
+            this.direction = 2; // Default Down
+            
+            // 状态机
+            this.state = 'move'; // 'move', 'idle'
+            this.waitTimer = 0;
+            this.stepsRemaining = 0;
+            
+            // 初始化第一次移动
+            this.planNextMove();
         }
+
+        planNextMove() {
+            // 决策：先休息，再走
+            this.state = 'idle';
+            // 休息 1-2 秒 (60-120帧)
+            this.waitTimer = 60 + Math.floor(Math.random() * 60);
+        }
+
+        startMoving() {
+            // 决定走几格 (1-5)
+            let steps = 1 + Math.floor(Math.random() * 5);
+            this.stepsRemaining = steps;
+            
+            // 决定方向 (简单AI：优先向下，其次随机)
+            let possibleDirs = [];
+            if (canWalk(this.col, this.row - 1)) possibleDirs.push(0);
+            if (canWalk(this.col + 1, this.row)) possibleDirs.push(1);
+            if (canWalk(this.col, this.row + 1)) possibleDirs.push(2);
+            if (canWalk(this.col - 1, this.row)) possibleDirs.push(3);
+
+            if (possibleDirs.length > 0) {
+                // 加权：向下权重高
+                if (possibleDirs.includes(2)) possibleDirs.push(2, 2, 2);
+                this.direction = possibleDirs[Math.floor(Math.random() * possibleDirs.length)];
+                this.state = 'move';
+                this.setNextTarget();
+            } else {
+                // 无路可走，继续休息
+                this.planNextMove();
+            }
+        }
+
+        setNextTarget() {
+            let dCol = 0, dRow = 0;
+            if (this.direction === 0) dRow = -1;
+            if (this.direction === 1) dCol = 1;
+            if (this.direction === 2) dRow = 1;
+            if (this.direction === 3) dCol = -1;
+
+            let nextC = this.col + dCol;
+            let nextR = this.row + dRow;
+
+            // 检查阻挡
+            if (canWalk(nextC, nextR)) {
+                this.targetX = nextC * GRID_SIZE;
+                this.targetY = nextR * GRID_SIZE;
+            } else {
+                // 被阻挡，强制停止本轮移动，进入思考
+                this.targetX = this.x;
+                this.targetY = this.y;
+                this.stepsRemaining = 0;
+            }
+        }
+
         update() {
-            let nextY = this.y + this.speed;
-            let collision = false;
-            let myRect = {x: this.x, y: nextY, w: this.width, h: this.height};
-            for(let o of obstacles) {
-                if (isColliding(myRect, o)) { collision = true; break; }
+            // 1. 状态机逻辑
+            if (this.state === 'idle') {
+                this.waitTimer--;
+                if (this.waitTimer <= 0) {
+                    this.startMoving();
+                }
+            } else if (this.state === 'move') {
+                // 平滑移动
+                let arrived = false;
+                if (this.x < this.targetX) { this.x += this.moveSpeed; if(this.x >= this.targetX) arrived=true; }
+                else if (this.x > this.targetX) { this.x -= this.moveSpeed; if(this.x <= this.targetX) arrived=true; }
+                else if (this.y < this.targetY) { this.y += this.moveSpeed; if(this.y >= this.targetY) arrived=true; }
+                else if (this.y > this.targetY) { this.y -= this.moveSpeed; if(this.y <= this.targetY) arrived=true; }
+                
+                // 强制对齐修正 (防止浮点数误差)
+                if (Math.abs(this.x - this.targetX) < this.moveSpeed && Math.abs(this.y - this.targetY) < this.moveSpeed) {
+                    this.x = this.targetX;
+                    this.y = this.targetY;
+                    arrived = true;
+                }
+
+                if (arrived) {
+                    this.col = Math.round(this.x / GRID_SIZE);
+                    this.row = Math.round(this.y / GRID_SIZE);
+                    this.stepsRemaining--;
+                    
+                    if (this.stepsRemaining > 0) {
+                        // 继续走下一格
+                        this.setNextTarget();
+                        // 如果 setNextTarget 发现被阻挡，stepsRemaining 还是 > 0 但 target 没变
+                        // 所以需要判断 target 是否变了
+                        if (this.targetX === this.x && this.targetY === this.y) {
+                            this.planNextMove(); // 撞墙了，休息
+                        }
+                    } else {
+                        // 走完了，休息
+                        this.planNextMove();
+                    }
+                }
             }
-            if (!collision) {
-                this.y = nextY;
-                this.row = Math.floor(this.y / GRID_SIZE);
-            }
+
+            // 2. 射击逻辑
             this.shootTimer--;
             if (this.shootTimer <= 0) {
                 spawnBullet(this.x + GRID_SIZE/2, this.y + GRID_SIZE);
                 this.shootTimer = 150 + Math.random() * 100;
             }
+
+            // 3. 农田判定
             if (this.row >= 13 && this.col >= 3 && this.col <= 5) gameOver();
             if (this.y > canvas.height) this.markedForDeletion = true;
         }
+
         draw() {
             let img = assets['enemy1.png'];
-            if (img) {
-                let offset = (VISUAL_SIZE - GRID_SIZE) / 2;
-                ctx.drawImage(img, this.x - offset, this.y - offset, VISUAL_SIZE, VISUAL_SIZE);
-            }
-            else { ctx.fillStyle = 'red'; ctx.fillRect(this.x, this.y, this.width, this.height); }
+            ctx.save();
+            ctx.translate(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2);
+            
+            let angle = 0;
+            if (this.direction === 0) angle = Math.PI;
+            if (this.direction === 1) angle = -Math.PI/2;
+            if (this.direction === 2) angle = 0;
+            if (this.direction === 3) angle = Math.PI/2;
+            
+            ctx.rotate(angle);
+
+            if (img) ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
+            else { ctx.fillStyle = 'red'; ctx.fillRect(-GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE); }
+            ctx.restore();
         }
     }
 
     class Projectile extends Entity {
-        constructor(x, y, dx, dy, type, isPiercing = false) {
+        constructor(x, y, dx, dy, type, isPiercing = false, imgName = null) {
             super(0, 0, 30, 30);
             this.x = x; this.y = y; this.dx = dx; this.dy = dy;
-            this.type = type; this.angle = 0; this.isPiercing = isPiercing;
+            this.type = type; this.angle = 0; 
+            this.isPiercing = isPiercing;
+            this.imgName = imgName;
         }
         update() {
             this.x += this.dx; this.y += this.dy;
-            if (this.type === 'scythe') this.angle += 0.3;
+            if (this.type === 'scythe') {
+                this.angle += this.isPiercing ? 0.6 : 0.3;
+            }
             else this.angle = Math.PI; 
             if (this.x < -50 || this.x > canvas.width + 50 || this.y < -50 || this.y > canvas.height + 50) this.markedForDeletion = true;
         }
@@ -399,20 +539,9 @@
             ctx.translate(this.x, this.y);
             ctx.rotate(this.angle);
             
-            // --- 修复投掷物换图逻辑 ---
-            let imgName = 'bullet1.png'; // 默认为箭矢
-            
-            if (this.type === 'scythe') {
-                // 如果是镰刀，检查是否穿透
-                if (this.isPiercing) {
-                    imgName = 'powerup.png'; // 穿透状态下使用 powerup.png
-                } else {
-                    imgName = 'scythe.png';
-                }
-            }
-
-            let img = assets[imgName];
-            // 容错: 找不到图就用普通镰刀
+            let finalImgName = this.imgName;
+            if (!finalImgName) finalImgName = (this.type === 'arrow') ? 'bullet1.png' : 'scythe.png';
+            let img = assets[finalImgName];
             if (!img && this.type === 'scythe') img = assets['scythe.png'];
 
             if (this.type === 'arrow') {
@@ -534,14 +663,6 @@
         }
     }
 
-    function spawnScythe() {
-        let dx = 0, dy = 0; let speed = 8;
-        if (player.direction === 0) dy = -speed;
-        if (player.direction === 1) dx = speed;
-        if (player.direction === 2) dy = speed;
-        if (player.direction === 3) dx = -speed;
-        projectiles.push(new Projectile(player.x+GRID_SIZE/2, player.y+GRID_SIZE/2, dx, dy, 'scythe', player.hasPiercing));
-    }
     function spawnBullet(x, y) {
         projectiles.push(new Projectile(x, y, 0, 4, 'arrow'));
     }
@@ -602,7 +723,13 @@
                     document.getElementById('hp-display').innerText = "❤️ 生命: " + player.hp;
                     if (player.hp <= 0) gameOver();
                 }
-                obstacles.forEach(o => { if (isColliding(rect1, o)) p.markedForDeletion = true; });
+                obstacles.forEach(o => { 
+                    if (isColliding(rect1, o)) {
+                        p.markedForDeletion = true;
+                        // 敌方子弹可以打坏拒马和草堆
+                        if (o.type !== 'base') o.hit();
+                    }
+                });
             }
         });
     }
