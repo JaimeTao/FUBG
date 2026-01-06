@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>绝地求耕 - 完美手感版</title>
+    <title>绝地求耕 - 最终完全体</title>
     <style>
         body {
             margin: 0;
@@ -66,7 +66,22 @@
             font-size: 18px;
             animation: pulse 1s infinite;
         }
+        
+        #harvest-hint {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #76ff03;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 5px black;
+            display: none;
+            pointer-events: none;
+            animation: bounce 0.5s infinite alternate;
+        }
+
         @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
+        @keyframes bounce { from { transform: translate(-50%, -50%) scale(1); } to { transform: translate(-50%, -60%) scale(1.1); } }
 
         /* 剧情开场 */
         #intro-screen {
@@ -90,22 +105,12 @@
         }
         #start-btn.visible { opacity: 1; pointer-events: auto; }
 
-        /* 跳过按钮 */
         #skip-btn {
-            position: absolute;
-            top: 20px; right: 20px;
-            padding: 8px 15px;
-            font-size: 14px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            color: #fff;
-            border-radius: 20px;
-            cursor: pointer;
-            z-index: 60;
+            position: absolute; top: 20px; right: 20px; padding: 8px 15px; font-size: 14px;
+            background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #fff; border-radius: 20px; cursor: pointer; z-index: 60;
         }
-        #skip-btn:hover { background: rgba(255, 255, 255, 0.4); }
 
-        /* 游戏结束 */
         #game-over-screen {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center;
@@ -118,34 +123,33 @@
 
         /* 控制器 */
         #controls {
-            position: absolute; bottom: 20px; left: 0; width: 100%; height: 160px;
+            position: absolute; bottom: 20px; left: 0; width: 100%; height: 180px;
             pointer-events: none; z-index: 10;
         }
-        .d-pad {
-            position: absolute; bottom: 20px; left: 20px;
-            width: 140px; height: 140px; pointer-events: auto;
-        }
+        .d-pad { position: absolute; bottom: 20px; left: 20px; width: 160px; height: 160px; pointer-events: auto; }
         .d-btn {
-            position: absolute; width: 45px; height: 45px;
-            background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px; display: flex; justify-content: center; align-items: center;
-            font-size: 24px; color: rgba(255,255,255,0.8); user-select: none;
+            position: absolute; width: 55px; height: 55px; 
+            background: rgba(255, 255, 255, 0.1); 
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px; display: flex; justify-content: center; align-items: center;
+            font-size: 30px; color: rgba(255,255,255,0.6); user-select: none;
         }
-        .d-btn:active { background: rgba(255, 215, 0, 0.4); }
-        .btn-up { top: 0; left: 47px; } .btn-down { bottom: 0; left: 47px; }
-        .btn-left { top: 47px; left: 0; } .btn-right { top: 47px; right: 0; }
+        .d-btn:active { background: rgba(255, 215, 0, 0.3); }
+        .btn-up { top: 0; left: 52px; } .btn-down { bottom: 0; left: 52px; }
+        .btn-left { top: 52px; left: 0; } .btn-right { top: 52px; right: 0; }
 
         .atk-btn-container {
-            position: absolute; bottom: 40px; right: 30px; width: 85px; height: 85px; pointer-events: auto;
+            position: absolute; bottom: 40px; right: 30px; width: 90px; height: 90px; pointer-events: auto;
         }
         .atk-btn {
             width: 100%; height: 100%; border-radius: 50%;
-            background: rgba(255, 69, 0, 0.6); border: 4px solid rgba(255, 69, 0, 0.8);
+            background: rgba(255, 69, 0, 0.4); 
+            border: 4px solid rgba(255, 69, 0, 0.6);
             display: flex; justify-content: center; align-items: center;
-            font-weight: bold; font-size: 20px; color: white;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5); user-select: none;
+            font-weight: bold; font-size: 22px; color: rgba(255,255,255,0.9);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); user-select: none;
         }
-        .atk-btn:active { transform: scale(0.92); background: rgba(255, 69, 0, 0.9); }
+        .atk-btn:active { transform: scale(0.92); background: rgba(255, 69, 0, 0.8); }
     </style>
 </head>
 <body>
@@ -157,6 +161,7 @@
         <div id="hp-display" class="hud-text">❤️ 生命: 10</div>
         <div id="gold-display" class="hud-text">💰 粮食: 0</div>
         <div id="buff-indicator">⚡ 穿透攻击生效中</div>
+        <div id="harvest-hint">麦子熟了！</div>
     </div>
 
     <div id="intro-screen">
@@ -188,10 +193,6 @@
 </div>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    
-    // --- 剧情动画 ---
     window.onload = function() {
         const lines = document.querySelectorAll('.intro-line');
         const btn = document.getElementById('start-btn');
@@ -204,43 +205,72 @@
         preloadAssets();
     };
 
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
     // --- 资源加载 ---
     const assets = {};
+    const audioAssets = {}; 
     let loadedCount = 0;
-    const imageList = [
+    
+    // 混合资源列表 (新增 BG.mp3)
+    const resourceList = [
         'BG.png', 'famer_idle.png', 'enemy1.png', 'bullet1.png', 'scythe.png',
-        'base.png', 'base2.png', 'straw.png', 'wheat01.png', 'juma.png', 'coin.png',
+        'base.png', 'base2.png', 'straw.png', 'juma.png', 'coin.png',
         'powerup.png', 'gold_scythe.png',
         'famer_attack.001.png', 'famer_attack.002.png', 'famer_attack.003.png',
-        'famer_attack.004.png', 'famer_attack.005.png', 'famer_attack.006.png'
+        'famer_attack.004.png', 'famer_attack.005.png', 'famer_attack.006.png',
+        'wheat.001.png', 'wheat.002.png', 'wheat.003.png', 'wheat.004.png',
+        'wheat.005.png', 'wheat.006.png', 'wheat.007.png', 'wheat.cut.png',
+        // 音频
+        'feixing.mp3', 'death.mp3', 'dong.mp3', 'BG.mp3'
     ];
 
     function preloadAssets() {
-        imageList.forEach(name => {
-            const img = new Image();
-            img.src = name;
-            img.onload = () => { assets[name] = img; loadedCount++; };
-            img.onerror = () => { loadedCount++; };
+        resourceList.forEach(name => {
+            if (name.endsWith('.mp3')) {
+                const audio = new Audio();
+                audio.src = name;
+                audio.oncanplaythrough = () => { 
+                    if(!audioAssets[name]) { 
+                        audioAssets[name] = audio; 
+                        loadedCount++; 
+                    }
+                };
+                audio.onerror = () => { console.warn("Missing Audio:", name); loadedCount++; };
+                audio.load(); 
+            } else {
+                const img = new Image();
+                img.src = name;
+                img.onload = () => { assets[name] = img; loadedCount++; };
+                img.onerror = () => { console.warn("Missing Image:", name); loadedCount++; };
+            }
         });
+    }
+
+    function playSound(name) {
+        if (audioAssets[name]) {
+            const sound = audioAssets[name].cloneNode();
+            sound.volume = 0.6;
+            sound.play().catch(e => {}); 
+        }
     }
 
     // --- 常量 ---
     const GRID_SIZE = 40;
     const VISUAL_SIZE = 52; 
     const COLS = 9; const ROWS = 16; 
+    const GROWTH_INTERVAL = 3600; // 60秒生长周期
+    const WAVE_DELAY = 10; // 波浪延迟帧数
+    const JUMP_DURATION = 20; // 跳动动画时长 (帧)
     
-    // --- 输入处理 (修复版) ---
+    // --- 输入 ---
     const input = { up: false, down: false, left: false, right: false, attack: false };
     
     window.setInput = (key, val) => { 
         input[key] = val; 
-        // 触摸屏攻击
-        if(key === 'attack' && val === true && player && !player.isAttacking) {
-            triggerAttack();
-        }
+        if(key === 'attack' && val === true && player && !player.isAttacking) triggerAction();
     };
-
-    // 键盘监听 (修复空格键无效问题)
     window.addEventListener('keydown', e => {
         if(e.repeat) return;
         switch(e.code) {
@@ -248,37 +278,59 @@
             case 'ArrowDown': case 'KeyS': setInput('down', true); break;
             case 'ArrowLeft': case 'KeyA': setInput('left', true); break;
             case 'ArrowRight': case 'KeyD': setInput('right', true); break;
-            case 'Space': case 'Enter': // 增加 Enter 键支持
-                if(player && !player.isAttacking) triggerAttack(); 
-                break;
+            case 'Space': case 'Enter': if(player && !player.isAttacking) triggerAction(); break;
         }
     });
-    
     window.addEventListener('keyup', e => {
         switch(e.code) {
             case 'ArrowUp': case 'KeyW': setInput('up', false); break;
             case 'ArrowDown': case 'KeyS': setInput('down', false); break;
             case 'ArrowLeft': case 'KeyA': setInput('left', false); break;
             case 'ArrowRight': case 'KeyD': setInput('right', false); break;
+            case 'Space': case 'Enter': setInput('attack', false); break;
         }
     });
 
-    // --- 游戏状态 ---
-    let gameState = { running: false, score: 0, gameOver: false, baseLevel: 1, upgradeThreshold: 100 };
+    let gameState = { 
+        running: false, score: 0, gameOver: false, 
+        baseLevel: 1, upgradeThreshold: 100, 
+        globalFrame: 0,
+        nextGrowthWaveTime: 0 // 下一次生长波次开始的时间
+    };
 
-    // --- 武器逻辑 ---
+    // --- 核心动作 ---
+    function triggerAction() {
+        if (!player.isAttacking) {
+            player.isAttacking = true;
+            player.attackFrame = 0;
+            player.attackTimer = 0;
+            
+            // 收割逻辑：收割脚下
+            let targetWheat = wheatFields.find(w => w.col === player.col && w.row === player.row);
+            
+            if (targetWheat && targetWheat.stage === 7 && !targetWheat.isHarvested) {
+                player.isHarvestingAction = true;
+                targetWheat.harvest();
+                playSound('dong.mp3'); 
+            } else {
+                player.isHarvestingAction = false;
+            }
+        }
+    }
+
     function spawnPlayerAttack(player) {
-        let dx = 0, dy = 0; let speed = 8;
-        if (player.direction === 0) dy = -speed;
-        if (player.direction === 1) dx = speed;
-        if (player.direction === 2) dy = speed;
-        if (player.direction === 3) dx = -speed;
-        
-        let spriteName = player.hasPiercing ? 'powerup.png' : 'scythe.png';
-        projectiles.push(new Projectile(
-            player.x + GRID_SIZE/2, player.y + GRID_SIZE/2, 
-            dx, dy, 'scythe', player.hasPiercing, spriteName
-        ));
+        if (!player.isHarvestingAction) {
+            let dx = 0, dy = 0; let speed = 8;
+            if (player.direction === 0) dy = -speed;
+            if (player.direction === 1) dx = speed;
+            if (player.direction === 2) dy = speed;
+            if (player.direction === 3) dx = -speed;
+            let spriteName = player.hasPiercing ? 'powerup.png' : 'scythe.png';
+            projectiles.push(new Projectile(
+                player.x + GRID_SIZE/2, player.y + GRID_SIZE/2, 
+                dx, dy, 'scythe', player.hasPiercing, spriteName
+            ));
+        }
     }
 
     // --- 实体类 ---
@@ -291,19 +343,139 @@
         }
     }
 
+    // 麦子类 (多米诺动画优化版)
+    class Wheat extends Entity {
+        constructor(col, row) {
+            super(col, row, GRID_SIZE, GRID_SIZE);
+            this.stage = 1; 
+            this.isHarvested = false;
+            this.jumpTimer = 0; // 动画计时器
+            this.isJumping = false;
+        }
+
+        update() {
+            // 跳动动画逻辑
+            if (this.isJumping) {
+                this.jumpTimer++;
+                if (this.jumpTimer >= JUMP_DURATION) {
+                    this.isJumping = false;
+                    this.jumpTimer = 0;
+                }
+            }
+
+            // 生长触发检测 (多米诺波浪)
+            // 每一个麦子的触发时间 = 波次基础时间 + (列+行) * 延迟
+            let triggerTime = gameState.nextGrowthWaveTime + (this.col + this.row) * WAVE_DELAY;
+            
+            if (!this.isHarvested && this.stage < 7) {
+                if (gameState.globalFrame === triggerTime) {
+                    this.stage++;
+                    this.isJumping = true; // 触发跳动
+                }
+            }
+
+            // 再生逻辑: 收割后20秒重生
+            // 我们简单处理：如果收割了，单独倒计时
+            if (this.isHarvested) {
+                // 利用 markedForDeletion 以外的变量记录重生时间
+                // 这里复用 jumpTimer 逻辑不太好，用独立逻辑
+                if (!this.respawnFrame) this.respawnFrame = gameState.globalFrame + 1200;
+                
+                if (gameState.globalFrame > this.respawnFrame) {
+                    this.isHarvested = false;
+                    this.stage = 1;
+                    this.respawnFrame = null;
+                    this.isJumping = true; // 重生也跳一下
+                }
+            }
+        }
+
+        harvest() {
+            this.isHarvested = true;
+            this.stage = 8; 
+            grainParticles.push(new GrainParticle(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2));
+        }
+
+        draw() {
+            let imgName = this.isHarvested ? 'wheat.cut.png' : `wheat.00${this.stage}.png`;
+            let img = assets[imgName];
+            
+            // 计算跳动 Y 偏移
+            let offsetY = 0;
+            if (this.isJumping) {
+                // 正弦波跳动 0 -> PI
+                let progress = (this.jumpTimer / JUMP_DURATION) * Math.PI;
+                offsetY = -Math.sin(progress) * 8; // 跳高 8 像素
+            }
+
+            let drawY = this.y + offsetY;
+
+            if (img) {
+                ctx.save();
+                if (this.stage === 7 && !this.isHarvested) {
+                    let scale = 1 + Math.sin(Date.now() / 200) * 0.05;
+                    ctx.translate(this.x + GRID_SIZE/2, drawY + GRID_SIZE/2);
+                    ctx.scale(scale, scale);
+                    ctx.filter = "brightness(130%)";
+                    ctx.drawImage(img, -GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE);
+                } else {
+                    ctx.drawImage(img, this.x, drawY, GRID_SIZE, GRID_SIZE);
+                }
+                ctx.restore();
+            } else {
+                ctx.fillStyle = this.stage === 7 ? 'gold' : 'green';
+                ctx.fillRect(this.x, drawY, GRID_SIZE, GRID_SIZE);
+            }
+        }
+    }
+
+    class GrainParticle extends Entity {
+        constructor(x, y) {
+            super(0, 0, 20, 20);
+            this.x = x; this.y = y;
+            this.vx = (Math.random() - 0.5) * 5; this.vy = -5; 
+            this.state = 'pop'; this.timer = 0;
+        }
+        update() {
+            if (this.state === 'pop') {
+                this.x += this.vx; this.y += this.vy;
+                this.vy += 0.5; this.timer++;
+                if (this.timer > 20) this.state = 'fly';
+            } else {
+                let tx = (COLS - 3 + 1.5) * GRID_SIZE;
+                let ty = (ROWS - 3 + 1.5) * GRID_SIZE;
+                let dx = tx - this.x; let dy = ty - this.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                this.x += (dx / dist) * 15; this.y += (dy / dist) * 15;
+                if (dist < 30) { collectCoin(); this.markedForDeletion = true; }
+            }
+        }
+        draw() {
+            ctx.font = "24px Arial"; ctx.fillText("🌾", this.x, this.y);
+        }
+    }
+
     class Player extends Entity {
         constructor() {
             super(4, 10, GRID_SIZE, GRID_SIZE);
-            this.hp = 10;
-            this.direction = 0; 
-            this.isMoving = false;
-            this.moveSpeed = 4;
-            this.targetX = this.x; this.targetY = this.y;
-            this.isAttacking = false;
-            this.attackFrame = 0; this.attackTimer = 0;
+            this.hp = 10; this.direction = 0; this.isMoving = false;
+            this.moveSpeed = 4; this.targetX = this.x; this.targetY = this.y;
+            this.isAttacking = false; this.attackFrame = 0; this.attackTimer = 0;
             this.hasPiercing = false; this.piercingTimer = 0;
+            this.isHarvestingAction = false;
+            this.hitFlashTimer = 0; 
         }
+        
+        hit() {
+            this.hp--;
+            document.getElementById('hp-display').innerText = "❤️ 生命: " + this.hp;
+            this.hitFlashTimer = 10; // 闪烁10帧
+            if (this.hp <= 0) gameOver();
+        }
+
         update() {
+            if (this.hitFlashTimer > 0) this.hitFlashTimer--;
+
             if (this.hasPiercing) {
                 this.piercingTimer--;
                 document.getElementById('buff-indicator').style.display = 'block';
@@ -317,10 +489,11 @@
                 if (this.attackTimer % 5 === 0) { 
                     this.attackFrame++;
                     if (this.attackFrame === 4) spawnPlayerAttack(this);
-                    if (this.attackFrame > 6) { this.isAttacking = false; this.attackFrame = 0; }
+                    if (this.attackFrame > 6) { this.isAttacking = false; this.attackFrame = 0; this.isHarvestingAction = false; }
                 }
                 return;
             }
+            // 移动逻辑
             if (this.isMoving) {
                 if (this.x < this.targetX) this.x += this.moveSpeed;
                 if (this.x > this.targetX) this.x -= this.moveSpeed;
@@ -334,15 +507,21 @@
                 }
             } else {
                 let dCol = 0, dRow = 0;
-                if (input.up) { dRow = -1; this.direction = 0; }
-                else if (input.down) { dRow = 1; this.direction = 2; }
-                else if (input.left) { dCol = -1; this.direction = 3; }
-                else if (input.right) { dCol = 1; this.direction = 1; }
-                if (dCol !== 0 || dRow !== 0) {
-                    let nextC = this.col + dCol; let nextR = this.row + dRow;
-                    if (canWalk(nextC, nextR)) {
-                        this.isMoving = true;
-                        this.targetX = nextC * GRID_SIZE; this.targetY = nextR * GRID_SIZE;
+                let intentDir = -1; 
+                if (input.up) { dRow = -1; intentDir = 0; }
+                else if (input.down) { dRow = 1; intentDir = 2; }
+                else if (input.left) { dCol = -1; intentDir = 3; }
+                else if (input.right) { dCol = 1; intentDir = 1; }
+
+                if (intentDir !== -1) {
+                    if (intentDir !== this.direction) {
+                        this.direction = intentDir;
+                    } else {
+                        let nextC = this.col + dCol; let nextR = this.row + dRow;
+                        if (canWalk(nextC, nextR)) {
+                            this.isMoving = true;
+                            this.targetX = nextC * GRID_SIZE; this.targetY = nextR * GRID_SIZE;
+                        }
                     }
                 }
             }
@@ -352,11 +531,12 @@
             ctx.translate(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2);
             ctx.rotate(this.direction * Math.PI / 2);
             
-            if (this.hasPiercing) {
+            // 受击闪烁
+            if (this.hitFlashTimer > 0) {
+                ctx.filter = "brightness(500%) sepia(100%) hue-rotate(-50deg) saturate(600%)";
+            } else if (this.hasPiercing) {
                 ctx.shadowBlur = 20; ctx.shadowColor = "rgba(255, 215, 0, 1)"; 
-                if (this.piercingTimer < 300) {
-                    if (Math.floor(this.piercingTimer / 5) % 2 === 0) ctx.filter = "brightness(250%)";
-                }
+                if (this.piercingTimer < 300 && Math.floor(this.piercingTimer / 5) % 2 === 0) ctx.filter = "brightness(250%)";
             }
 
             let img;
@@ -369,42 +549,32 @@
                 img = assets['famer_idle.png'];
             }
             if (img) ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
-            else { ctx.fillStyle = 'blue'; ctx.fillRect(-GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE); }
             ctx.restore();
         }
     }
 
-    // --- 敌人AI重构版 ---
     class Enemy extends Entity {
         constructor() {
             let c = Math.floor(Math.random() * COLS);
             super(c, -1, GRID_SIZE, GRID_SIZE);
-            this.moveSpeed = 0.6; // 修改点：移动速度减慢 (2 -> 0.6)
-            this.shootTimer = Math.random() * 200;
-            this.direction = 2; // Default Down
-            
-            // 状态机
-            this.state = 'move'; // 'move', 'idle'
-            this.waitTimer = 0;
+            this.moveSpeed = 0.6; 
+            this.direction = 2; 
+            this.state = 'idle'; 
+            this.waitTimer = 60 + Math.floor(Math.random() * 120); 
             this.stepsRemaining = 0;
-            
-            // 初始化第一次移动
-            this.planNextMove();
+            this.targetX = this.x; this.targetY = this.y;
+            this.chargeTimer = 0;
+            this.chargeMax = 120 + Math.random() * 180; 
         }
 
         planNextMove() {
-            // 决策：先休息，再走
             this.state = 'idle';
-            // 休息 1-2 秒 (60-120帧)
-            this.waitTimer = 60 + Math.floor(Math.random() * 60);
+            this.waitTimer = 60 + Math.floor(Math.random() * 60); 
         }
 
         startMoving() {
-            // 决定走几格 (1-5)
             let steps = 1 + Math.floor(Math.random() * 5);
             this.stepsRemaining = steps;
-            
-            // 决定方向 (简单AI：优先向下，其次随机)
             let possibleDirs = [];
             if (canWalk(this.col, this.row - 1)) possibleDirs.push(0);
             if (canWalk(this.col + 1, this.row)) possibleDirs.push(1);
@@ -412,13 +582,11 @@
             if (canWalk(this.col - 1, this.row)) possibleDirs.push(3);
 
             if (possibleDirs.length > 0) {
-                // 加权：向下权重高
                 if (possibleDirs.includes(2)) possibleDirs.push(2, 2, 2);
                 this.direction = possibleDirs[Math.floor(Math.random() * possibleDirs.length)];
                 this.state = 'move';
                 this.setNextTarget();
             } else {
-                // 无路可走，继续休息
                 this.planNextMove();
             }
         }
@@ -429,72 +597,51 @@
             if (this.direction === 1) dCol = 1;
             if (this.direction === 2) dRow = 1;
             if (this.direction === 3) dCol = -1;
-
-            let nextC = this.col + dCol;
-            let nextR = this.row + dRow;
-
-            // 检查阻挡
+            let nextC = this.col + dCol; let nextR = this.row + dRow;
             if (canWalk(nextC, nextR)) {
-                this.targetX = nextC * GRID_SIZE;
-                this.targetY = nextR * GRID_SIZE;
+                this.targetX = nextC * GRID_SIZE; this.targetY = nextR * GRID_SIZE;
             } else {
-                // 被阻挡，强制停止本轮移动，进入思考
-                this.targetX = this.x;
-                this.targetY = this.y;
+                this.targetX = this.x; this.targetY = this.y;
                 this.stepsRemaining = 0;
             }
         }
 
         update() {
-            // 1. 状态机逻辑
             if (this.state === 'idle') {
                 this.waitTimer--;
-                if (this.waitTimer <= 0) {
-                    this.startMoving();
-                }
+                if (this.waitTimer <= 0) this.startMoving();
             } else if (this.state === 'move') {
-                // 平滑移动
                 let arrived = false;
                 if (this.x < this.targetX) { this.x += this.moveSpeed; if(this.x >= this.targetX) arrived=true; }
                 else if (this.x > this.targetX) { this.x -= this.moveSpeed; if(this.x <= this.targetX) arrived=true; }
                 else if (this.y < this.targetY) { this.y += this.moveSpeed; if(this.y >= this.targetY) arrived=true; }
                 else if (this.y > this.targetY) { this.y -= this.moveSpeed; if(this.y <= this.targetY) arrived=true; }
                 
-                // 强制对齐修正 (防止浮点数误差)
                 if (Math.abs(this.x - this.targetX) < this.moveSpeed && Math.abs(this.y - this.targetY) < this.moveSpeed) {
-                    this.x = this.targetX;
-                    this.y = this.targetY;
+                    this.x = this.targetX; this.y = this.targetY;
                     arrived = true;
                 }
-
                 if (arrived) {
-                    this.col = Math.round(this.x / GRID_SIZE);
-                    this.row = Math.round(this.y / GRID_SIZE);
+                    this.col = Math.round(this.x / GRID_SIZE); this.row = Math.round(this.y / GRID_SIZE);
                     this.stepsRemaining--;
-                    
                     if (this.stepsRemaining > 0) {
-                        // 继续走下一格
                         this.setNextTarget();
-                        // 如果 setNextTarget 发现被阻挡，stepsRemaining 还是 > 0 但 target 没变
-                        // 所以需要判断 target 是否变了
-                        if (this.targetX === this.x && this.targetY === this.y) {
-                            this.planNextMove(); // 撞墙了，休息
-                        }
+                        if (this.targetX === this.x && this.targetY === this.y) this.planNextMove(); 
                     } else {
-                        // 走完了，休息
                         this.planNextMove();
                     }
                 }
             }
 
-            // 2. 射击逻辑
-            this.shootTimer--;
-            if (this.shootTimer <= 0) {
-                spawnBullet(this.x + GRID_SIZE/2, this.y + GRID_SIZE);
-                this.shootTimer = 150 + Math.random() * 100;
+            if (this.y > 0) {
+                this.chargeTimer++;
+                if (this.chargeTimer >= this.chargeMax) {
+                    spawnEnemyBullet(this);
+                    this.chargeTimer = 0;
+                    this.chargeMax = 120 + Math.random() * 180; 
+                }
             }
 
-            // 3. 农田判定
             if (this.row >= 13 && this.col >= 3 && this.col <= 5) gameOver();
             if (this.y > canvas.height) this.markedForDeletion = true;
         }
@@ -503,18 +650,23 @@
             let img = assets['enemy1.png'];
             ctx.save();
             ctx.translate(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2);
-            
             let angle = 0;
             if (this.direction === 0) angle = Math.PI;
             if (this.direction === 1) angle = -Math.PI/2;
             if (this.direction === 2) angle = 0;
             if (this.direction === 3) angle = Math.PI/2;
-            
             ctx.rotate(angle);
-
             if (img) ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
             else { ctx.fillStyle = 'red'; ctx.fillRect(-GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE); }
             ctx.restore();
+
+            if (this.chargeMax > 0) {
+                let pct = this.chargeTimer / this.chargeMax;
+                ctx.fillStyle = '#333';
+                ctx.fillRect(this.x + 5, this.y + GRID_SIZE - 5, 30, 4);
+                ctx.fillStyle = '#ffeb3b';
+                ctx.fillRect(this.x + 5, this.y + GRID_SIZE - 5, 30 * pct, 4);
+            }
         }
     }
 
@@ -525,13 +677,26 @@
             this.type = type; this.angle = 0; 
             this.isPiercing = isPiercing;
             this.imgName = imgName;
+            
+            // 飞行音效
+            if (this.type === 'scythe') {
+                this.sound = null;
+                if(audioAssets['feixing.mp3']) {
+                    this.sound = audioAssets['feixing.mp3'].cloneNode();
+                    this.sound.loop = true;
+                    this.sound.volume = 0.4;
+                    this.sound.play().catch(e=>{});
+                }
+            }
         }
         update() {
             this.x += this.dx; this.y += this.dy;
             if (this.type === 'scythe') {
                 this.angle += this.isPiercing ? 0.6 : 0.3;
+            } else {
+                if (Math.abs(this.dx) > Math.abs(this.dy)) this.angle = (this.dx > 0) ? -Math.PI/2 : Math.PI/2;
+                else this.angle = (this.dy > 0) ? Math.PI : 0;
             }
-            else this.angle = Math.PI; 
             if (this.x < -50 || this.x > canvas.width + 50 || this.y < -50 || this.y > canvas.height + 50) this.markedForDeletion = true;
         }
         draw() {
@@ -546,12 +711,13 @@
 
             if (this.type === 'arrow') {
                 if(img) ctx.drawImage(img, -6, -15, 12, 30);
-                else { ctx.fillStyle = 'white'; ctx.fillRect(-3, -10, 6, 20); }
             } else {
                 if(img) ctx.drawImage(img, -15, -15, 30, 30);
-                else { ctx.fillStyle = 'gold'; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill(); }
             }
             ctx.restore();
+        }
+        destroy() {
+            if(this.sound) { this.sound.pause(); this.sound = null; }
         }
     }
 
@@ -562,15 +728,11 @@
             this.timer = 0;
             this.offsetY = 0;
         }
-        update() {
-            this.timer += 0.1;
-            this.offsetY = Math.sin(this.timer) * 5; 
-        }
+        update() { this.timer += 0.1; this.offsetY = Math.sin(this.timer) * 5; }
         draw() {
             let img = assets['powerup.png'];
             let drawY = this.y + this.offsetY;
             if(img) ctx.drawImage(img, this.x - 15, drawY - 15, 30, 30);
-            else { ctx.fillStyle = '#e040fb'; ctx.beginPath(); ctx.arc(this.x, drawY, 10, 0, Math.PI*2); ctx.fill(); }
             ctx.font = '10px "SimHei"'; ctx.fillStyle = '#ff00ff'; ctx.textAlign = 'center';
             ctx.fillText("穿透攻击", this.x, drawY + 25);
         }
@@ -581,14 +743,14 @@
             super(col, row, GRID_SIZE * widthTiles, GRID_SIZE * heightTiles);
             this.type = type; 
             this.widthTiles = widthTiles; this.heightTiles = heightTiles;
-            
-            if (type === 'juma') this.hp = 5;
-            else if (type === 'base') this.hp = 999;
-            else this.hp = 3; 
+            if (type === 'juma') { this.hp = 5; this.maxHp = 5; }
+            else if (type === 'base') { this.hp = 999; this.maxHp = 999; }
+            else { this.hp = 3; this.maxHp = 3; }
         }
         hit() {
             if (this.type === 'base') return; 
             this.hp--;
+            playSound('dong.mp3');
             if (this.hp <= 0) this.markedForDeletion = true;
         }
         draw() {
@@ -599,6 +761,15 @@
             let img = assets[imgName];
             if (img) ctx.drawImage(img, this.x, this.y, this.width, this.height);
             else { ctx.fillStyle = 'brown'; ctx.fillRect(this.x, this.y, this.width, this.height); }
+
+            if (this.type !== 'base' && this.hp < this.maxHp || this.type === 'juma') {
+                let boxW = 6; let gap = 2;
+                let startX = this.x + (this.width - (this.maxHp * (boxW+gap))) / 2;
+                for (let i=0; i<this.maxHp; i++) {
+                    ctx.fillStyle = (i < this.hp) ? '#0f0' : '#555';
+                    ctx.fillRect(startX + i*(boxW+gap), this.y - 8, boxW, 4);
+                }
+            }
         }
     }
 
@@ -637,16 +808,20 @@
     let obstacles = [];
     let coins = [];
     let items = [];
+    let wheatFields = [];
+    let grainParticles = [];
     let baseEffects = { scale: 1, brightness: 100 };
 
     function initLevel() {
         player = new Player();
         enemies = []; projectiles = []; obstacles = []; coins = []; items = [];
-        gameState.score = 0; gameState.baseLevel = 1;
+        wheatFields = []; grainParticles = [];
+        gameState.score = 0; gameState.baseLevel = 1; gameState.globalFrame = 0;
+        gameState.nextGrowthWaveTime = 0; // 初始化生长波次
+        
         document.getElementById('hp-display').innerText = "❤️ 生命: 10";
         document.getElementById('gold-display').innerText = "💰 粮食: 0";
 
-        // 农田保护圈
         obstacles.push(new Obstacle(3, 12, 'juma'));
         obstacles.push(new Obstacle(4, 12, 'juma'));
         obstacles.push(new Obstacle(5, 12, 'juma'));
@@ -661,14 +836,22 @@
                 if (Math.random() < 0.15) obstacles.push(new Obstacle(c, r, 'straw'));
             }
         }
+        for(let r=13; r<ROWS; r++){
+            for(let c=3; c<=5; c++){
+                wheatFields.push(new Wheat(c, r));
+            }
+        }
     }
 
-    function spawnBullet(x, y) {
-        projectiles.push(new Projectile(x, y, 0, 4, 'arrow'));
+    function spawnEnemyBullet(enemy) {
+        let dx = 0, dy = 0; let speed = 4;
+        if (enemy.direction === 0) dy = -speed;
+        if (enemy.direction === 1) dx = speed;
+        if (enemy.direction === 2) dy = speed;
+        if (enemy.direction === 3) dx = -speed;
+        projectiles.push(new Projectile(enemy.x+GRID_SIZE/2, enemy.y+GRID_SIZE/2, dx, dy, 'arrow'));
     }
-    function triggerAttack() {
-        if (!player.isAttacking) { player.isAttacking = true; player.attackFrame = 0; player.attackTimer = 0; }
-    }
+
     function canWalk(col, row) {
         if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return false;
         for (let o of obstacles) {
@@ -700,7 +883,8 @@
                 enemies.forEach(e => {
                     if (isColliding(rect1, e)) {
                         e.markedForDeletion = true;
-                        if (!p.isPiercing) p.markedForDeletion = true;
+                        if (!p.isPiercing) p.markedForDeletion = true; else p.destroy(); 
+                        playSound('death.mp3');
                         if (Math.random() < 0.05) { 
                             items.push(new PowerUp(e.x + GRID_SIZE/2, e.y + GRID_SIZE/2));
                         } else {
@@ -719,14 +903,11 @@
             } else {
                 if (isColliding(rect1, pRect)) {
                     p.markedForDeletion = true;
-                    player.hp--;
-                    document.getElementById('hp-display').innerText = "❤️ 生命: " + player.hp;
-                    if (player.hp <= 0) gameOver();
+                    player.hit();
                 }
                 obstacles.forEach(o => { 
                     if (isColliding(rect1, o)) {
                         p.markedForDeletion = true;
-                        // 敌方子弹可以打坏拒马和草堆
                         if (o.type !== 'base') o.hit();
                     }
                 });
@@ -754,39 +935,50 @@
         gameState.running = false; gameState.gameOver = true;
         document.getElementById('final-score').innerText = gameState.score;
         document.getElementById('game-over-screen').style.display = 'flex';
+        // 游戏结束停止背景音乐 (可选)
     }
 
     function loop() {
         if (!gameState.running) return;
+        gameState.globalFrame++;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         if (assets['BG.png']) ctx.drawImage(assets['BG.png'], 0, 0, canvas.width, canvas.height);
         else { ctx.fillStyle = '#4e342e'; ctx.fillRect(0,0,canvas.width, canvas.height); }
 
-        for(let r=13; r<ROWS; r++){
-            for(let c=3; c<=5; c++){
-                let img = assets['wheat01.png'];
-                if(img) ctx.drawImage(img, c*GRID_SIZE, r*GRID_SIZE, GRID_SIZE, GRID_SIZE);
-            }
+        // 生长波次更新
+        if (gameState.globalFrame > gameState.nextGrowthWaveTime + 3600) {
+            gameState.nextGrowthWaveTime = gameState.globalFrame;
         }
+
+        wheatFields.forEach(w => { w.update(); w.draw(); });
+        
+        let hasMature = wheatFields.some(w => w.stage === 7 && !w.isHarvested);
+        document.getElementById('harvest-hint').style.display = hasMature ? 'block' : 'none';
 
         obstacles = obstacles.filter(o => !o.markedForDeletion);
         obstacles.forEach(o => o.draw());
 
         items.forEach(i => { i.update(); i.draw(); });
 
-        if (Math.random() < 0.007) enemies.push(new Enemy());
+        if (Math.random() < 0.007 && enemies.length < 8) enemies.push(new Enemy());
         enemies = enemies.filter(e => !e.markedForDeletion);
         enemies.forEach(e => { e.update(); e.draw(); });
 
         player.update();
         player.draw();
 
-        projectiles = projectiles.filter(p => !p.markedForDeletion);
+        projectiles = projectiles.filter(p => {
+            if (p.markedForDeletion) { p.destroy(); return false; }
+            return true;
+        });
         projectiles.forEach(p => { p.update(); p.draw(); });
 
         coins = coins.filter(c => !c.markedForDeletion);
         coins.forEach(c => { c.update(); c.draw(); });
+
+        grainParticles = grainParticles.filter(g => !g.markedForDeletion);
+        grainParticles.forEach(g => { g.update(); g.draw(); });
 
         checkCollisions();
 
@@ -811,6 +1003,14 @@
         document.getElementById('intro-screen').style.display = 'none';
         initLevel();
         gameState.running = true;
+        
+        // 播放背景音乐
+        if(audioAssets['BG.mp3']) {
+            audioAssets['BG.mp3'].loop = true;
+            audioAssets['BG.mp3'].volume = 0.5;
+            audioAssets['BG.mp3'].play();
+        }
+        
         loop();
     }
 </script>
