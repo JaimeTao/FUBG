@@ -1343,7 +1343,7 @@
         }
     }
 
-    class Obstacle extends Entity {
+class Obstacle extends Entity {
         constructor(col, row, type, widthTiles = 1, heightTiles = 1) {
             super(col, row, GRID_SIZE * widthTiles, GRID_SIZE * heightTiles);
             this.type = type; 
@@ -1352,13 +1352,21 @@
             else { this.hp = 3; this.maxHp = 3; } 
             
             this.spawnTimer = 20; 
-            this.angle = 0; // 增加旋转角度
+            this.angle = 0; 
+            
+            // [新增] 闪烁计时器
+            this.hitFlashTimer = 0; 
         }
+
         hit() {
             this.hp--;
+            // [新增] 设置闪烁时间 (例如10帧)
+            this.hitFlashTimer = 10; 
+            
             playSound('dong.mp3');
             if (this.hp <= 0) this.markedForDeletion = true;
         }
+
         draw() {
             let imgName = '';
             if (this.type === 'straw') imgName = 'straw.png';
@@ -1368,7 +1376,7 @@
             ctx.save();
             ctx.translate(this.x + this.width/2, this.y + this.height/2);
 
-            if (this.angle !== 0) ctx.rotate(this.angle); // 应用旋转
+            if (this.angle !== 0) ctx.rotate(this.angle); 
 
             if (this.spawnTimer > 0) {
                 this.spawnTimer--;
@@ -1376,17 +1384,25 @@
                 ctx.scale(scale, scale);
             }
             
-            if (gameState.isFrozen) {
+		// 优先处理受击闪烁
+            if (this.hitFlashTimer > 0) {
+                this.hitFlashTimer--;
+                // 优化：使用滤镜组合模拟红色受伤效果
+                // sepia: 转为褐色调, hue-rotate: 旋转色相至红色, saturate: 增加色彩饱和度
+                ctx.filter = "sepia(100%) hue-rotate(-50deg) saturate(300%)"; 
+            } else if (gameState.isFrozen) {
                  ctx.filter = "saturate(30%) brightness(130%)";
             }
 
             if (this.type === 'straw') ctx.globalAlpha = 0.9; 
+            
             if (img) {
                 ctx.drawImage(img, -this.width/2, -this.height/2, this.width, this.height);
             }
             else { ctx.fillStyle = 'brown'; ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height); }
             ctx.restore();
 
+            // 绘制血条 (保持不变)
             if (this.hp < this.maxHp || this.type === 'juma') {
                 let boxW = 6; let gap = 2;
                 let startX = this.x + (this.width - (this.maxHp * (boxW+gap))) / 2;
