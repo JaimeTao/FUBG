@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>绝地求耕 - 最终完全体</title>
+    <title>绝地求耕 - 优化版</title>
     <style>
         body {
             margin: 0;
@@ -25,158 +25,283 @@
             position: relative;
             box-shadow: 0 0 30px rgba(0,0,0,0.9);
             width: 100%;
-            max-width: 450px;
+            max-width: 420px;
             height: auto;
-            aspect-ratio: 9/16;
+            aspect-ratio: 7/12;
             background: #333;
             overflow: hidden;
+            cursor: crosshair;
         }
 
-        canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-            image-rendering: pixelated;
-        }
+        canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
 
         #ui-layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-            z-index: 5;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5; padding: 10px; box-sizing: border-box;
         }
 
-        .hud-text {
-            position: absolute;
-            font-size: 16px;
-            font-weight: bold;
-            text-shadow: 2px 2px 0 #000;
-            padding: 10px;
+        .stat-row {
+            font-size: 21px; font-weight: bold; 
+            text-shadow: 2px 2px 0 rgba(0,0,0,0.8);
+            margin-bottom: 5px; display: flex; align-items: center; opacity: 0.8;
         }
-        #hp-display { top: 0; left: 0; color: #ff5555; }
-        #gold-display { top: 0; right: 0; color: #FFD700; }
 
-        #buff-indicator {
-            position: absolute;
-            top: 50px; left: 10px;
-            color: #e040fb;
+        #action-hint {
+            position: absolute; 
+            top: 55%; 
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #76ff03; 
+            font-size: 32px; 
             font-weight: bold;
-            display: none;
-            text-shadow: 1px 1px 2px black;
-            font-size: 18px;
-            animation: pulse 1s infinite;
+            text-shadow: 0 0 5px black; display: none; pointer-events: none;
+            text-align: center; width: 100%; z-index: 20;
+            opacity: 0.6;
+            animation: bounce 0.5s infinite alternate;
         }
         
-        #harvest-hint {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            color: #76ff03;
-            font-size: 24px;
-            font-weight: bold;
-            text-shadow: 0 0 5px black;
-            display: none;
-            pointer-events: none;
-            animation: bounce 0.5s infinite alternate;
+        #spring-timer {
+            font-size: 24px; color: #00e5ff; margin-top: 5px;
         }
 
         @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
         @keyframes bounce { from { transform: translate(-50%, -50%) scale(1); } to { transform: translate(-50%, -60%) scale(1.1); } }
-
-        /* 剧情开场 */
-        #intro-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: black;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 50; pointer-events: auto; padding: 40px; box-sizing: border-box;
+        
+        @keyframes btn-flash {
+            0% { filter: brightness(1) drop-shadow(0 0 0px white); transform: scale(1); }
+            50% { filter: brightness(2) drop-shadow(0 0 10px gold); transform: scale(1.1) rotate(5deg); }
+            100% { filter: brightness(1) drop-shadow(0 0 0px white); transform: scale(1); }
         }
+        
+        .anim-active {
+            animation: btn-flash 0.2s linear;
+        }
+
+        .fullscreen-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 50; pointer-events: auto; padding: 20px; box-sizing: border-box;
+            display: none;
+        }
+        #intro-screen { display: flex; }
+
         .intro-line {
             color: #ddd; font-size: 20px; line-height: 2; text-align: center;
             opacity: 0; transform: translateY(20px); transition: opacity 1s, transform 1s;
-            margin-bottom: 10px;
+            margin-bottom: 10px; width: 90%;
         }
         .intro-line.visible { opacity: 1; transform: translateY(0); }
         
-        #start-btn {
-            margin-top: 40px; opacity: 0; transition: opacity 1s; pointer-events: none;
-            padding: 15px 40px; font-size: 24px; background: #d4a017;
-            color: #3e2723; border: 2px solid #fff; border-radius: 8px; font-weight: bold;
-            box-shadow: 0 0 15px #d4a017;
+        button {
+            margin-top: 20px; padding: 15px 30px; font-size: 22px; 
+            background: #d4a017; color: #3e2723; border: 2px solid #fff; border-radius: 8px;
+            font-weight: bold; cursor: pointer; box-shadow: 0 0 15px #d4a017;
+            opacity: 0; pointer-events: none; transition: opacity 0.5s;
         }
-        #start-btn.visible { opacity: 1; pointer-events: auto; }
+        button.visible { opacity: 1; pointer-events: auto; }
+        button:active { transform: scale(0.95); }
 
         #skip-btn {
             position: absolute; top: 20px; right: 20px; padding: 8px 15px; font-size: 14px;
             background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.5);
-            color: #fff; border-radius: 20px; cursor: pointer; z-index: 60;
+            color: #fff; border-radius: 20px; margin: 0; opacity: 1; pointer-events: auto;
         }
 
-        #game-over-screen {
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center;
-            z-index: 40; pointer-events: auto;
+        #tutorial-screen {
+            display: none; z-index: 55;
+            text-align: center;
         }
-        .restart-btn {
-            padding: 15px 40px; font-size: 20px; background: #d4a017;
-            color: #3e2723; border: 2px solid #fff; border-radius: 8px; font-weight: bold; cursor: pointer;
+        .tutorial-item { margin: 20px 0; font-size: 18px; color: #eee; }
+        .key-icon {
+            display: inline-block; padding: 5px 10px; background: #555; border: 1px solid #999;
+            border-radius: 5px; font-family: monospace; color: #FFD700; margin: 0 5px;
         }
 
-        /* 控制器 */
-        #controls {
-            position: absolute; bottom: 20px; left: 0; width: 100%; height: 180px;
-            pointer-events: none; z-index: 10;
+        .result-box {
+            background: #3e2723; border: 4px solid #d4a017; padding: 20px; border-radius: 10px;
+            width: 90%; text-align: center; margin-bottom: 40px;
         }
-        .d-pad { position: absolute; bottom: 20px; left: 20px; width: 160px; height: 160px; pointer-events: auto; }
+        .result-title { font-size: 32px; color: #FFD700; margin-bottom: 15px; font-weight: bold; }
+        .result-row { font-size: 24px; margin: 15px 0; color: #ddd; display: flex; justify-content: space-between; }
+        .retry-btn {
+            width: 80%; background: linear-gradient(to bottom, #76ff03, #64dd17);
+            color: #1b5e20; font-size: 26px; animation: pulse 1.5s infinite; opacity: 1; pointer-events: auto;
+        }
+
+        #controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        .d-pad { position: absolute; bottom: 30px; left: 30px; width: 150px; height: 150px; pointer-events: auto; opacity: 0.6; }
         .d-btn {
-            position: absolute; width: 55px; height: 55px; 
-            background: rgba(255, 255, 255, 0.1); 
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 10px; display: flex; justify-content: center; align-items: center;
-            font-size: 30px; color: rgba(255,255,255,0.6); user-select: none;
+            position: absolute; width: 50px; height: 50px; 
+            background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px; display: flex; justify-content: center; align-items: center;
+            font-size: 24px; color: rgba(255,255,255,0.5); user-select: none;
         }
         .d-btn:active { background: rgba(255, 215, 0, 0.3); }
-        .btn-up { top: 0; left: 52px; } .btn-down { bottom: 0; left: 52px; }
-        .btn-left { top: 52px; left: 0; } .btn-right { top: 52px; right: 0; }
+        .btn-up { top: 0; left: 50px; } .btn-down { bottom: 0; left: 50px; }
+        .btn-left { top: 50px; left: 0; } .btn-right { top: 50px; right: 0; }
 
-        .atk-btn-container {
-            position: absolute; bottom: 40px; right: 30px; width: 90px; height: 90px; pointer-events: auto;
+        .skill-container {
+            position: absolute; bottom: 40px; right: 30px;
+            width: auto; 
+            pointer-events: auto; 
+            opacity: 0.5;
+            display: flex; flex-direction: row; align-items: flex-end; gap: 20px;
         }
-        .atk-btn {
-            width: 100%; height: 100%; border-radius: 50%;
-            background: rgba(255, 69, 0, 0.4); 
-            border: 4px solid rgba(255, 69, 0, 0.6);
-            display: flex; justify-content: center; align-items: center;
-            font-weight: bold; font-size: 22px; color: rgba(255,255,255,0.9);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); user-select: none;
+        
+        .skill-btn {
+            width: 80px; height: 80px; border-radius: 50%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-weight: bold; user-select: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.6); border: 2px solid #ddd;
+            position: relative; flex-shrink: 0;
+            transition: transform 0.1s;
         }
-        .atk-btn:active { transform: scale(0.92); background: rgba(255, 69, 0, 0.8); }
+        .skill-btn:active { transform: scale(0.95); filter: brightness(0.9); }
+
+        .btn-attack {
+            background: radial-gradient(circle, #ffffff, #e0e0e0);
+            border-color: #fff; 
+            color: #333; 
+            order: 2;
+        }
+        .btn-attack img {
+            width: 90%; 
+            height: 90%; 
+            object-fit: contain; 
+            opacity: 1;
+        }
+        
+        .btn-build {
+            background: rgba(139, 69, 19, 0.8); border-color: #a1887f;
+            color: #fff; font-size: 12px; order: 1;
+        }
+        .btn-build img { width: 80%; height: 80%; opacity: 1; margin-bottom: 2px; object-fit: contain; }
+        #build-count { font-weight: bold; text-shadow: 1px 1px 0 #000; position: absolute; bottom: 5px; }
+
+        #npc-dialogue-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 80; display: none;
+        }
+        .bubble {
+            background: #fff; color: #000; padding: 8px 12px; border-radius: 10px;
+            position: absolute; max-width: 180px; font-size: 14px; line-height: 1.3;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+            transform: translateX(-50%); pointer-events: none;
+            display: none;
+        }
+        .bubble::after {
+            content: ''; position: absolute; border: 8px solid transparent;
+            left: 50%; transform: translateX(-50%);
+        }
+        #npc-bubble { border-bottom-color: #fff; } 
+        #npc-bubble::after {
+            top: 100%; border-top-color: #fff; border-bottom-color: transparent; 
+        }
+
+        #selection-panel {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 90%; background: #3e2723; border: 3px solid #d4a017; border-radius: 10px;
+            padding: 20px; display: none; flex-direction: column; align-items: center;
+            pointer-events: auto;
+        }
+        .scythe-options { display: flex; justify-content: space-around; width: 100%; margin: 20px 0; }
+        
+        .scythe-opt {
+            width: 120px; height: 110px; 
+            background: transparent; border: none;
+            cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .scythe-opt:active { transform: scale(0.95); }
+        
+        .scythe-opt img { width: 92px; height: 92px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); }
+        .scythe-label { font-size: 14px; margin-top: 5px; color: #FFD700; font-weight: bold; text-shadow: 1px 1px 2px black; }
+
+        #download-btn {
+            background: linear-gradient(to bottom, #29b6f6, #0288d1);
+            width: 100%; margin-top: 15px; display: none; padding: 12px;
+            font-size: 18px; color: white; border: none; border-radius: 5px;
+            cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            text-decoration: none; text-align: center;
+        }
+        
+        #chosen-icon {
+            width: 80px; height: 80px; display: none; margin-right: 15px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 5px gold);
+        }
+
     </style>
 </head>
 <body>
 
 <div id="game-container">
-    <canvas id="gameCanvas" width="360" height="640"></canvas>
+    <canvas id="gameCanvas" width="420" height="720"></canvas>
     
     <div id="ui-layer">
-        <div id="hp-display" class="hud-text">❤️ 生命: 10</div>
-        <div id="gold-display" class="hud-text">💰 粮食: 0</div>
-        <div id="buff-indicator">⚡ 穿透攻击生效中</div>
-        <div id="harvest-hint">麦子熟了！</div>
+        <div class="stat-row" style="color: #FFD700">💰 <span id="gold-display">0</span></div>
+        <div class="stat-row" style="color: #76ff03">🌾 <span id="wheat-display">0</span></div>
+        <div id="action-hint">
+            <span id="hint-text">麦子熟了！</span>
+            <div id="spring-timer"></div>
+        </div>
     </div>
 
-    <div id="intro-screen">
+    <div id="intro-screen" class="fullscreen-overlay">
         <button id="skip-btn" onclick="startGame()">跳过 >></button>
-        <div class="intro-line">东汉末年政权动荡，</div>
-        <div class="intro-line">兵匪四起，民生凋敝。</div>
-        <div class="intro-line" style="margin-top: 20px; color: #FFD700;">帮助老农守卫农田，</div>
-        <div class="intro-line" style="color: #FFD700;">不要让士兵抢走粮食。</div>
-        <button id="start-btn" onclick="startGame()">绝地求耕</button>
+        <div class="intro-line">东汉末年，兵匪四起，</div>
+        <div class="intro-line">苦了大地上辛勤劳作的老农，</div>
+        <div class="intro-line">帮助老农守卫农田，</div>
+        <div class="intro-line">不要让兵匪抢走田里的庄家。</div>
+        <button id="start-btn" onclick="showTutorial()">查看操作指引</button>
     </div>
 
-    <div id="game-over-screen">
-        <h2 style="color: #ff5555; margin-bottom: 10px; font-size: 30px;">农田失守</h2>
-        <p style="color: #ddd; margin-bottom: 30px; font-size: 20px;">最终收集: <span id="final-score">0</span></p>
-        <button class="restart-btn" onclick="location.reload()">重新来过</button>
+    <div id="tutorial-screen" class="fullscreen-overlay">
+        <h2 style="color: #FFD700; margin-bottom: 30px;">操作指南</h2>
+        <div class="tutorial-item"><span class="key-icon">W A S D</span> 或 <span class="key-icon">↑ ↓ ← →</span> 移动</div>
+        <div class="tutorial-item"><span class="key-icon">鼠标左键</span> 攻击 / 收割</div>
+        <div class="tutorial-item"><span class="key-icon">鼠标右键</span> 放置阻挡物</div>
+        <div class="tutorial-item" style="font-size: 16px; color: #aaa;">(点按方向键仅转向，长按0.3秒移动)</div>
+        <div style="margin-top: 20px; font-size: 14px; color: #aaa;">在<span style="color:#e0e0e0; border:1px solid #777; padding:0 3px;">🔲</span>标记处建造可恢复拒马</div>
+        <button onclick="startGame()" style="opacity:1; pointer-events:auto;">绝地求耕</button>
+    </div>
+
+    <div id="result-screen" class="fullscreen-overlay">
+        <div class="result-box">
+            <div class="result-title">防线失守</div>
+            <div class="result-row"><span>收集金币:</span> <span id="res-gold" style="color:#FFD700">0</span></div>
+            <div class="result-row"><span>抢收军粮:</span> <span id="res-wheat" style="color:#76ff03">0</span></div>
+        </div>
+        <button class="retry-btn" onclick="location.reload()">再守一次</button>
+    </div>
+
+    <div id="npc-dialogue-layer">
+        <div id="npc-bubble" class="bubble"></div>
+        <div id="selection-panel">
+            <div id="selection-title" style="color:#FFD700; font-size:24px; font-weight:bold; margin-bottom:15px;">请选择</div>
+            <div class="scythe-options" id="scythe-opts">
+                <div class="scythe-opt" onclick="chooseScythe(1)">
+                    <img src="scythe01.png" alt="Rusty"> 
+                    <span class="scythe-label">生锈的镰刀</span>
+                </div>
+                <div class="scythe-opt" onclick="chooseScythe(2)">
+                    <img src="scythe02.png" alt="Silver"> 
+                    <span class="scythe-label">银镰刀</span>
+                </div>
+                <div class="scythe-opt" onclick="chooseScythe(3)">
+                    <img src="scythe03.png" alt="Gold"> 
+                    <span class="scythe-label">金镰刀</span>
+                </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: center; width: 100%; margin-top: 10px;">
+                 <img id="chosen-icon" src="">
+                 <div id="npc-feedback" style="color:#76ff03; font-size:16px; display:none; line-height: 1.5; text-align: left;"></div>
+            </div>
+           
+            <a id="download-btn" href="#" target="_blank">点击下载完整体验</a>
+        </div>
     </div>
 
     <div id="controls">
@@ -186,8 +311,15 @@
             <div class="d-btn btn-left" ontouchstart="setInput('left', true)" ontouchend="setInput('left', false)">⬅️</div>
             <div class="d-btn btn-right" ontouchstart="setInput('right', true)" ontouchend="setInput('right', false)">➡️</div>
         </div>
-        <div class="atk-btn-container">
-            <div class="atk-btn" ontouchstart="setInput('attack', true)" ontouchend="setInput('attack', false)">攻击</div>
+        
+        <div class="skill-container">
+            <div id="btn-build" class="skill-btn btn-build" ontouchstart="setInput('build', true)" ontouchend="setInput('build', false)">
+                <img src="straw.png" alt="wall">
+                <span id="build-count">5/9</span>
+            </div>
+            <div id="btn-attack" class="skill-btn btn-attack" ontouchstart="setInput('attack', true)" ontouchend="setInput('attack', false)">
+                <img src="scythe.png" alt="Attack">
+            </div>
         </div>
     </div>
 </div>
@@ -197,32 +329,37 @@
         const lines = document.querySelectorAll('.intro-line');
         const btn = document.getElementById('start-btn');
         let delay = 500;
+        
         lines.forEach((line) => {
             setTimeout(() => { line.classList.add('visible'); }, delay);
             delay += 1500;
         });
+        
         setTimeout(() => { btn.classList.add('visible'); }, delay);
+        
         preloadAssets();
     };
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
-    // --- 资源加载 ---
     const assets = {};
     const audioAssets = {}; 
     let loadedCount = 0;
     
-    // 混合资源列表 (新增 BG.mp3)
     const resourceList = [
         'BG.png', 'famer_idle.png', 'enemy1.png', 'bullet1.png', 'scythe.png',
-        'base.png', 'base2.png', 'straw.png', 'juma.png', 'coin.png',
-        'powerup.png', 'gold_scythe.png',
+        'straw.png', 'juma.png', 'coin.png',
+        'powerup.png', 'gold_scythe.png', 'NPC.png', 'NPC01.png',
+        'scythe01.png', 'scythe02.png', 'scythe03.png',
         'famer_attack.001.png', 'famer_attack.002.png', 'famer_attack.003.png',
         'famer_attack.004.png', 'famer_attack.005.png', 'famer_attack.006.png',
+        'famer_move01.png', 'famer_move02.png', 
         'wheat.001.png', 'wheat.002.png', 'wheat.003.png', 'wheat.004.png',
         'wheat.005.png', 'wheat.006.png', 'wheat.007.png', 'wheat.cut.png',
-        // 音频
+        'enemy_run01.png', 'enemy_run02.png', 'enemy_run03.png', 'enemy_run04.png', 
+        'enemy_attack01.png', 'enemy_attack02.png', 'enemy_attack03.png', 'enemy_attack04.png', 'enemy_attack05.png',
+        'enemy_die01.png', 'enemy_die02.png', 'enemy_die03.png', 'enemy_die04.png', 'enemy_die05.png',
         'feixing.mp3', 'death.mp3', 'dong.mp3', 'BG.mp3'
     ];
 
@@ -231,19 +368,14 @@
             if (name.endsWith('.mp3')) {
                 const audio = new Audio();
                 audio.src = name;
-                audio.oncanplaythrough = () => { 
-                    if(!audioAssets[name]) { 
-                        audioAssets[name] = audio; 
-                        loadedCount++; 
-                    }
-                };
-                audio.onerror = () => { console.warn("Missing Audio:", name); loadedCount++; };
+                audio.oncanplaythrough = () => { if(!audioAssets[name]) { audioAssets[name] = audio; loadedCount++; } };
+                audio.onerror = () => { console.warn("Missing:", name); loadedCount++; };
                 audio.load(); 
             } else {
                 const img = new Image();
                 img.src = name;
                 img.onload = () => { assets[name] = img; loadedCount++; };
-                img.onerror = () => { console.warn("Missing Image:", name); loadedCount++; };
+                img.onerror = () => { console.warn("Missing:", name); loadedCount++; };
             }
         });
     }
@@ -256,21 +388,38 @@
         }
     }
 
-    // --- 常量 ---
-    const GRID_SIZE = 40;
-    const VISUAL_SIZE = 52; 
-    const COLS = 9; const ROWS = 16; 
-    const GROWTH_INTERVAL = 3600; // 60秒生长周期
-    const WAVE_DELAY = 10; // 波浪延迟帧数
-    const JUMP_DURATION = 20; // 跳动动画时长 (帧)
+    const GRID_SIZE = 60; 
+    const VISUAL_SIZE = 78; 
+    const COLS = 7; 
+    const ROWS = 12; 
+    const WAVE_DELAY = 10; 
     
-    // --- 输入 ---
-    const input = { up: false, down: false, left: false, right: false, attack: false };
+    const input = { up: false, down: false, left: false, right: false, attack: false, build: false };
+    // 记录按键按下的时间戳，用于判断点击还是长按
+    const inputTimes = { up: 0, down: 0, left: 0, right: 0 };
     
+    canvas.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        if (e.button === 0) {
+            if(player && !player.isAttacking) triggerAction();
+        } else if (e.button === 2) {
+            if(player) triggerBuild();
+        }
+    });
+    canvas.oncontextmenu = function(e) { e.preventDefault(); return false; }
+
     window.setInput = (key, val) => { 
+        if (val && !input[key]) {
+            // 如果是新按下的，记录时间
+            if(['up','down','left','right'].includes(key)) {
+                inputTimes[key] = Date.now();
+            }
+        }
         input[key] = val; 
         if(key === 'attack' && val === true && player && !player.isAttacking) triggerAction();
+        if(key === 'build' && val === true && player) triggerBuild();
     };
+    
     window.addEventListener('keydown', e => {
         if(e.repeat) return;
         switch(e.code) {
@@ -279,6 +428,7 @@
             case 'ArrowLeft': case 'KeyA': setInput('left', true); break;
             case 'ArrowRight': case 'KeyD': setInput('right', true); break;
             case 'Space': case 'Enter': if(player && !player.isAttacking) triggerAction(); break;
+            case 'KeyF': triggerBuild(); break; 
         }
     });
     window.addEventListener('keyup', e => {
@@ -292,29 +442,88 @@
     });
 
     let gameState = { 
-        running: false, score: 0, gameOver: false, 
-        baseLevel: 1, upgradeThreshold: 100, 
-        globalFrame: 0,
-        nextGrowthWaveTime: 0 // 下一次生长波次开始的时间
+        running: false, score: 0, wheatCollected: 0,
+        gameOver: false, globalFrame: 0,
+        nextGrowthWaveTime: 0, 
+        isSowingPhase: false,
+        isWaitingForSpring: false, 
+        springTimer: 0,            
+        
+        npcSpawned: false, 
+        npcInteractionActive: false,
+        harvestCycleCount: 0, 
+        
+        nextFrozenDropTime: 0,
+        isFrozen: false,
+        frozenTimer: 0
     };
 
-    // --- 核心动作 ---
+    let jumaLocations = [];
+    let npcInstance = null;
+    
+    function triggerBtnAnim(id) {
+        const btn = document.getElementById(id);
+        if(btn) {
+            btn.classList.remove('anim-active');
+            void btn.offsetWidth; 
+            btn.classList.add('anim-active');
+        }
+    }
+
     function triggerAction() {
-        if (!player.isAttacking) {
-            player.isAttacking = true;
-            player.attackFrame = 0;
-            player.attackTimer = 0;
+        triggerBtnAnim('btn-attack'); 
+        if (!player.isAttacking && !gameState.npcInteractionActive) {
+            player.performAttack();
+        }
+    }
+
+    function triggerBuild() {
+        triggerBtnAnim('btn-build'); 
+        if (!player || gameState.npcInteractionActive) return;
+        if (player.obstacleCount > 0) {
             
-            // 收割逻辑：收割脚下
-            let targetWheat = wheatFields.find(w => w.col === player.col && w.row === player.row);
+            let targetCol = player.col;
+            let targetRow = player.row;
             
-            if (targetWheat && targetWheat.stage === 7 && !targetWheat.isHarvested) {
-                player.isHarvestingAction = true;
-                targetWheat.harvest();
-                playSound('dong.mp3'); 
-            } else {
-                player.isHarvestingAction = false;
+            if (player.direction === 0) targetRow -= 1; 
+            else if (player.direction === 1) targetCol += 1; 
+            else if (player.direction === 2) targetRow += 1; 
+            else if (player.direction === 3) targetCol -= 1; 
+
+            if (targetCol < 0 || targetCol >= COLS || targetRow < 0 || targetRow >= ROWS) return;
+
+            let occupied = false;
+            let existingObs = obstacles.find(o => o.col === targetCol && o.row === targetRow);
+            if (existingObs) occupied = true;
+            if (wheatFields.some(w => w.col === targetCol && w.row === targetRow)) occupied = true;
+            if (enemies.some(e => Math.round(e.x/GRID_SIZE) === targetCol && Math.round(e.y/GRID_SIZE) === targetRow)) occupied = true;
+            
+            if (existingObs) {
+                player.performAttack();
+                return;
             }
+
+            if (!occupied) {
+                let isJumaSpot = jumaLocations.some(loc => loc.c === targetCol && loc.r === targetRow);
+                let typeToBuild = 'straw';
+                if (isJumaSpot) {
+                    typeToBuild = 'juma'; 
+                }
+
+                // 建造的阻挡物默认为0度，如果是最上排的拒马逻辑会在initLevel处理，但玩家手动建造的通常默认不转
+                // 如果需要玩家在特定点建造也是竖着的，可以在这里判断 isJumaSpot 增加旋转逻辑
+                // 这里暂保持玩家建造的为默认方向
+                obstacles.push(new Obstacle(targetCol, targetRow, typeToBuild));
+                player.obstacleCount--;
+                updateBuildBtn();
+                playSound('dong.mp3');
+            }
+        }
+    }
+
+    function updateBuildBtn() {
+        if(player) {
+            document.getElementById('build-count').innerText = `${player.obstacleCount}/9`;
         }
     }
 
@@ -326,14 +535,18 @@
             if (player.direction === 2) dy = speed;
             if (player.direction === 3) dx = -speed;
             let spriteName = player.hasPiercing ? 'powerup.png' : 'scythe.png';
+            
+            let pSize = GRID_SIZE * 0.665;
+            let spawnX = player.x + (GRID_SIZE - pSize) / 2;
+            let spawnY = player.y + (GRID_SIZE - pSize) / 2;
+
             projectiles.push(new Projectile(
-                player.x + GRID_SIZE/2, player.y + GRID_SIZE/2, 
-                dx, dy, 'scythe', player.hasPiercing, spriteName
+                spawnX, spawnY, 
+                dx, dy, 'scythe', player.hasPiercing, spriteName, pSize
             ));
         }
     }
 
-    // --- 实体类 ---
     class Entity {
         constructor(col, row, width, height) {
             this.col = col; this.row = row;
@@ -343,88 +556,55 @@
         }
     }
 
-    // 麦子类 (多米诺动画优化版)
     class Wheat extends Entity {
         constructor(col, row) {
             super(col, row, GRID_SIZE, GRID_SIZE);
-            this.stage = 1; 
-            this.isHarvested = false;
-            this.jumpTimer = 0; // 动画计时器
-            this.isJumping = false;
+            this.stage = 1; this.isHarvested = false;
+            this.jumpY = 0; 
+            this.nextStageTime = gameState.globalFrame + 100 + (this.col + this.row) * WAVE_DELAY;
         }
-
         update() {
-            // 跳动动画逻辑
-            if (this.isJumping) {
-                this.jumpTimer++;
-                if (this.jumpTimer >= JUMP_DURATION) {
-                    this.isJumping = false;
-                    this.jumpTimer = 0;
-                }
-            }
-
-            // 生长触发检测 (多米诺波浪)
-            // 每一个麦子的触发时间 = 波次基础时间 + (列+行) * 延迟
-            let triggerTime = gameState.nextGrowthWaveTime + (this.col + this.row) * WAVE_DELAY;
-            
-            if (!this.isHarvested && this.stage < 7) {
-                if (gameState.globalFrame === triggerTime) {
-                    this.stage++;
-                    this.isJumping = true; // 触发跳动
-                }
-            }
-
-            // 再生逻辑: 收割后20秒重生
-            // 我们简单处理：如果收割了，单独倒计时
-            if (this.isHarvested) {
-                // 利用 markedForDeletion 以外的变量记录重生时间
-                // 这里复用 jumpTimer 逻辑不太好，用独立逻辑
-                if (!this.respawnFrame) this.respawnFrame = gameState.globalFrame + 1200;
-                
-                if (gameState.globalFrame > this.respawnFrame) {
-                    this.isHarvested = false;
-                    this.stage = 1;
-                    this.respawnFrame = null;
-                    this.isJumping = true; // 重生也跳一下
+            if (this.jumpY < 0) this.jumpY += 0.5;
+            if (!this.isHarvested && this.stage < 7 && !gameState.isSowingPhase && !gameState.isWaitingForSpring) {
+                if (gameState.globalFrame >= this.nextStageTime) {
+                    this.stage++; this.jumpY = -5; 
+                    this.nextStageTime = gameState.globalFrame + 500 + (this.col + this.row) * WAVE_DELAY;
                 }
             }
         }
-
         harvest() {
-            this.isHarvested = true;
-            this.stage = 8; 
+            this.isHarvested = true; this.stage = 8; 
+            gameState.wheatCollected += 100; 
             grainParticles.push(new GrainParticle(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2));
         }
-
+        reset() {
+            this.isHarvested = false; this.stage = 1; this.jumpY = -5;
+            this.nextStageTime = gameState.globalFrame + 100 + (this.col + this.row) * WAVE_DELAY;
+        }
         draw() {
             let imgName = this.isHarvested ? 'wheat.cut.png' : `wheat.00${this.stage}.png`;
             let img = assets[imgName];
-            
-            // 计算跳动 Y 偏移
-            let offsetY = 0;
-            if (this.isJumping) {
-                // 正弦波跳动 0 -> PI
-                let progress = (this.jumpTimer / JUMP_DURATION) * Math.PI;
-                offsetY = -Math.sin(progress) * 8; // 跳高 8 像素
-            }
-
-            let drawY = this.y + offsetY;
-
+            let drawY = this.y + this.jumpY;
             if (img) {
                 ctx.save();
-                if (this.stage === 7 && !this.isHarvested) {
-                    let scale = 1 + Math.sin(Date.now() / 200) * 0.05;
-                    ctx.translate(this.x + GRID_SIZE/2, drawY + GRID_SIZE/2);
-                    ctx.scale(scale, scale);
-                    ctx.filter = "brightness(130%)";
-                    ctx.drawImage(img, -GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE);
-                } else {
+                if (gameState.isFrozen) {
+                    ctx.filter = "saturate(30%) brightness(130%)";
                     ctx.drawImage(img, this.x, drawY, GRID_SIZE, GRID_SIZE);
+                } else {
+                    if (this.stage === 7 && !this.isHarvested) {
+                        let scale = 1 + Math.sin(Date.now() / 200) * 0.05;
+                        ctx.translate(this.x + GRID_SIZE/2, drawY + GRID_SIZE/2);
+                        ctx.scale(scale, scale);
+                        ctx.filter = "brightness(130%)";
+                        ctx.drawImage(img, -GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE);
+                    } else if (gameState.isSowingPhase && this.isHarvested) {
+                        if (Math.floor(Date.now() / 300) % 2 === 0) ctx.filter = "brightness(130%) sepia(30%)";
+                        ctx.drawImage(img, this.x, drawY, GRID_SIZE, GRID_SIZE);
+                    } else {
+                        ctx.drawImage(img, this.x, drawY, GRID_SIZE, GRID_SIZE);
+                    }
                 }
                 ctx.restore();
-            } else {
-                ctx.fillStyle = this.stage === 7 ? 'gold' : 'green';
-                ctx.fillRect(this.x, drawY, GRID_SIZE, GRID_SIZE);
             }
         }
     }
@@ -442,46 +622,73 @@
                 this.vy += 0.5; this.timer++;
                 if (this.timer > 20) this.state = 'fly';
             } else {
-                let tx = (COLS - 3 + 1.5) * GRID_SIZE;
-                let ty = (ROWS - 3 + 1.5) * GRID_SIZE;
+                let tx = 20; let ty = 120; 
                 let dx = tx - this.x; let dy = ty - this.y;
                 let dist = Math.sqrt(dx*dx + dy*dy);
                 this.x += (dx / dist) * 15; this.y += (dy / dist) * 15;
-                if (dist < 30) { collectCoin(); this.markedForDeletion = true; }
+                if (dist < 30) { updateUI(); this.markedForDeletion = true; }
             }
         }
-        draw() {
-            ctx.font = "24px Arial"; ctx.fillText("🌾", this.x, this.y);
-        }
+        draw() { ctx.font = "30px Arial"; ctx.fillText("🌾", this.x, this.y); }
     }
 
     class Player extends Entity {
         constructor() {
-            super(4, 10, GRID_SIZE, GRID_SIZE);
-            this.hp = 10; this.direction = 0; this.isMoving = false;
+            super(COLS-1, ROWS-4, GRID_SIZE, GRID_SIZE);
+            this.hp = 6; this.maxHp = 6; 
+            this.direction = 0; this.isMoving = false;
             this.moveSpeed = 4; this.targetX = this.x; this.targetY = this.y;
             this.isAttacking = false; this.attackFrame = 0; this.attackTimer = 0;
             this.hasPiercing = false; this.piercingTimer = 0;
             this.isHarvestingAction = false;
             this.hitFlashTimer = 0; 
+            this.spawnFlashTimer = 150; 
+            this.obstacleCount = 5; 
+            
+            this.autoChargeTimer = 0;
+            this.autoChargeMax = 40; 
         }
         
         hit() {
             this.hp--;
-            document.getElementById('hp-display').innerText = "❤️ 生命: " + this.hp;
-            this.hitFlashTimer = 10; // 闪烁10帧
+            this.hitFlashTimer = 10; 
             if (this.hp <= 0) gameOver();
+        }
+        
+        performAttack() {
+            this.isAttacking = true;
+            this.attackFrame = 0;
+            this.attackTimer = 0;
+            
+            let targetWheat = wheatFields.find(w => w.col === player.col && w.row === player.row);
+            if (targetWheat) {
+                 if ((targetWheat.stage === 7 && !targetWheat.isHarvested) || (gameState.isSowingPhase && targetWheat.isHarvested)) {
+                     player.isHarvestingAction = true;
+                     if(targetWheat.stage === 7) {
+                         targetWheat.harvest();
+                         if (player.hp < player.maxHp) { player.hp++; }
+                         if (player.obstacleCount < 9) { player.obstacleCount++; updateBuildBtn(); }
+                     } else {
+                         targetWheat.reset();
+                         if (player.hp < player.maxHp) { player.hp++; }
+                     }
+                     playSound('dong.mp3');
+                 } else {
+                     player.isHarvestingAction = false;
+                 }
+            } else {
+                player.isHarvestingAction = false;
+            }
         }
 
         update() {
             if (this.hitFlashTimer > 0) this.hitFlashTimer--;
+            if (this.spawnFlashTimer > 0) this.spawnFlashTimer--;
 
             if (this.hasPiercing) {
                 this.piercingTimer--;
-                document.getElementById('buff-indicator').style.display = 'block';
                 if (this.piercingTimer <= 0) {
                     this.hasPiercing = false;
-                    document.getElementById('buff-indicator').style.display = 'none';
                 }
             }
             if (this.isAttacking) {
@@ -489,12 +696,16 @@
                 if (this.attackTimer % 5 === 0) { 
                     this.attackFrame++;
                     if (this.attackFrame === 4) spawnPlayerAttack(this);
-                    if (this.attackFrame > 6) { this.isAttacking = false; this.attackFrame = 0; this.isHarvestingAction = false; }
+                    if (this.attackFrame > 6) { 
+                        this.isAttacking = false; 
+                        this.attackFrame = 0; 
+                        this.isHarvestingAction = false; 
+                    }
                 }
                 return;
             }
-            // 移动逻辑
             if (this.isMoving) {
+                this.autoChargeTimer = 0; 
                 if (this.x < this.targetX) this.x += this.moveSpeed;
                 if (this.x > this.targetX) this.x -= this.moveSpeed;
                 if (this.y < this.targetY) this.y += this.moveSpeed;
@@ -506,34 +717,106 @@
                     this.isMoving = false;
                 }
             } else {
+                if (gameState.npcInteractionActive) return; 
                 let dCol = 0, dRow = 0;
                 let intentDir = -1; 
-                if (input.up) { dRow = -1; intentDir = 0; }
-                else if (input.down) { dRow = 1; intentDir = 2; }
-                else if (input.left) { dCol = -1; intentDir = 3; }
-                else if (input.right) { dCol = 1; intentDir = 1; }
+                let activeKey = '';
+
+                if (input.up) { dRow = -1; intentDir = 0; activeKey = 'up'; }
+                else if (input.down) { dRow = 1; intentDir = 2; activeKey = 'down'; }
+                else if (input.left) { dCol = -1; intentDir = 3; activeKey = 'left'; }
+                else if (input.right) { dCol = 1; intentDir = 1; activeKey = 'right'; }
 
                 if (intentDir !== -1) {
-                    if (intentDir !== this.direction) {
-                        this.direction = intentDir;
-                    } else {
-                        let nextC = this.col + dCol; let nextR = this.row + dRow;
-                        if (canWalk(nextC, nextR)) {
-                            this.isMoving = true;
-                            this.targetX = nextC * GRID_SIZE; this.targetY = nextR * GRID_SIZE;
-                        }
+                    this.direction = intentDir;
+                    
+                    // 检查按键持续时间，实现点按转向，长按移动
+                    let pressDuration = Date.now() - inputTimes[activeKey];
+                    if (pressDuration < 50) {
+                        // 按下时间不足0.01秒，只转向不移动
+                        this.autoChargeTimer = 0;
+                        return;
                     }
+
+                    let nextC = this.col + dCol; let nextR = this.row + dRow;
+                    let isBlocked = !canWalk(nextC, nextR);
+                    
+                    if (isBlocked) {
+                         let obs = obstacles.find(o => o.col === nextC && o.row === nextR);
+                         if (obs) {
+                             this.autoChargeTimer++;
+                             if (this.autoChargeTimer >= this.autoChargeMax) {
+                                 this.autoChargeTimer = 0;
+                                 this.performAttack();
+                             }
+                         } else {
+                             this.autoChargeTimer = 0;
+                         }
+                    } else {
+                        this.autoChargeTimer = 0;
+                        this.isMoving = true;
+                        this.targetX = nextC * GRID_SIZE; this.targetY = nextR * GRID_SIZE;
+                    }
+                } else {
+                    this.autoChargeTimer = 0;
                 }
             }
         }
         draw() {
             ctx.save();
             ctx.translate(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2);
+            
+            let barW = GRID_SIZE * 0.66;
+            let barH = 5;
+            let barY = -VISUAL_SIZE/2 - 10;
+            
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(-barW/2, barY, barW, barH);
+            
+            let hpPct = this.hp / this.maxHp;
+            ctx.fillStyle = hpPct > 0.3 ? "#76ff03" : "#ff1744";
+            ctx.fillRect(-barW/2, barY, barW * hpPct, barH);
+            
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-barW/2, barY, barW, barH);
+            
+            if (this.autoChargeTimer > 0) {
+                let chargePct = this.autoChargeTimer / this.autoChargeMax;
+                let cBarY = barY - 8;
+                ctx.fillStyle = "#ffeb3b";
+                ctx.fillRect(-barW/2, cBarY, barW * chargePct, 3);
+            }
+            
+            let footerY = GRID_SIZE/2 + 15;
+            
+            if (this.hasPiercing) {
+                let pSec = Math.ceil(this.piercingTimer / 60);
+                ctx.font = "bold 12px SimHei";
+                ctx.fillStyle = "#e040fb";
+                ctx.textAlign = "center";
+                ctx.shadowColor = "black"; ctx.shadowBlur = 2;
+                ctx.fillText(`⚡ 穿透 ${pSec}s`, 0, footerY);
+                ctx.shadowBlur = 0;
+                footerY += 15;
+            }
+            
+            if (gameState.isFrozen) {
+                let sec = (gameState.frozenTimer / 60).toFixed(1);
+                ctx.font = "bold 14px SimHei";
+                ctx.fillStyle = "#00e5ff";
+                ctx.textAlign = "center";
+                ctx.shadowColor = "black"; ctx.shadowBlur = 2;
+                ctx.fillText(`❄️ ${sec}s`, 0, footerY);
+                ctx.shadowBlur = 0;
+            }
+
             ctx.rotate(this.direction * Math.PI / 2);
             
-            // 受击闪烁
             if (this.hitFlashTimer > 0) {
                 ctx.filter = "brightness(500%) sepia(100%) hue-rotate(-50deg) saturate(600%)";
+            } else if (this.spawnFlashTimer > 0) {
+                if (Math.floor(this.spawnFlashTimer / 5) % 2 === 0) ctx.filter = "brightness(140%) opacity(0.8)";
             } else if (this.hasPiercing) {
                 ctx.shadowBlur = 20; ctx.shadowColor = "rgba(255, 215, 0, 1)"; 
                 if (this.piercingTimer < 300 && Math.floor(this.piercingTimer / 5) % 2 === 0) ctx.filter = "brightness(250%)";
@@ -545,9 +828,15 @@
                 if (frameIndex < 1) frameIndex = 1;
                 let padIndex = String(frameIndex).padStart(3, '0');
                 img = assets[`famer_attack.${padIndex}.png`];
+            } else if (this.isMoving) {
+                let moveFrame = Math.floor(gameState.globalFrame / 20) % 2; 
+                let moveSprite = moveFrame === 0 ? 'famer_move01.png' : 'famer_move02.png';
+                img = assets[moveSprite];
             } else {
                 img = assets['famer_idle.png'];
             }
+            
+            if (!img) img = assets['famer_idle.png']; 
             if (img) ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
             ctx.restore();
         }
@@ -559,58 +848,90 @@
             super(c, -1, GRID_SIZE, GRID_SIZE);
             this.moveSpeed = 0.6; 
             this.direction = 2; 
-            this.state = 'idle'; 
-            this.waitTimer = 60 + Math.floor(Math.random() * 120); 
+            this.actionState = 'move'; 
+            this.waitTimer = 0; 
             this.stepsRemaining = 0;
             this.targetX = this.x; this.targetY = this.y;
+            
             this.chargeTimer = 0;
-            this.chargeMax = 120 + Math.random() * 180; 
+            this.chargeMax = 120 + Math.random() * 60; 
+            
+            this.animFrame = 1;
+            this.animTimer = 0;
+            this.hp = 1;
+            
+            this.startMoving(); 
+            this.stayDeadTimer = 0; 
         }
 
-        planNextMove() {
-            this.state = 'idle';
-            this.waitTimer = 60 + Math.floor(Math.random() * 60); 
-        }
-
-        startMoving() {
-            let steps = 1 + Math.floor(Math.random() * 5);
-            this.stepsRemaining = steps;
-            let possibleDirs = [];
-            if (canWalk(this.col, this.row - 1)) possibleDirs.push(0);
-            if (canWalk(this.col + 1, this.row)) possibleDirs.push(1);
-            if (canWalk(this.col, this.row + 1)) possibleDirs.push(2);
-            if (canWalk(this.col - 1, this.row)) possibleDirs.push(3);
-
-            if (possibleDirs.length > 0) {
-                if (possibleDirs.includes(2)) possibleDirs.push(2, 2, 2);
-                this.direction = possibleDirs[Math.floor(Math.random() * possibleDirs.length)];
-                this.state = 'move';
-                this.setNextTarget();
-            } else {
-                this.planNextMove();
-            }
-        }
-
-        setNextTarget() {
-            let dCol = 0, dRow = 0;
-            if (this.direction === 0) dRow = -1;
-            if (this.direction === 1) dCol = 1;
-            if (this.direction === 2) dRow = 1;
-            if (this.direction === 3) dCol = -1;
-            let nextC = this.col + dCol; let nextR = this.row + dRow;
-            if (canWalk(nextC, nextR)) {
-                this.targetX = nextC * GRID_SIZE; this.targetY = nextR * GRID_SIZE;
-            } else {
-                this.targetX = this.x; this.targetY = this.y;
-                this.stepsRemaining = 0;
+        die() {
+            if (this.actionState !== 'die') {
+                this.actionState = 'die';
+                this.animFrame = 1;
+                this.animTimer = 0;
+                playSound('death.mp3');
+                
+                let now = Date.now();
+                if (now > gameState.nextFrozenDropTime && Math.random() < 0.2) { 
+                     items.push(new FrozenPowerUp(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2));
+                     gameState.nextFrozenDropTime = now + 60000 + Math.random() * 20000;
+                } else if (Math.random() < 0.05) { 
+                    items.push(new PowerUp(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2));
+                } else {
+                    coins.push(new Coin(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2));
+                }
             }
         }
 
         update() {
-            if (this.state === 'idle') {
-                this.waitTimer--;
-                if (this.waitTimer <= 0) this.startMoving();
-            } else if (this.state === 'move') {
+            if (gameState.isFrozen && this.actionState !== 'die') return;
+
+            this.animTimer++;
+            
+            if (this.actionState === 'die') {
+                if (this.animTimer % 5 === 0) {
+                    this.animFrame++;
+                    if (this.animFrame > 5) {
+                        this.stayDeadTimer++;
+                        this.animFrame = 5; 
+                        if (this.stayDeadTimer > 15) {
+                            this.markedForDeletion = true; 
+                        }
+                    }
+                }
+                return; 
+            }
+            
+            if (this.actionState === 'attack') {
+                if (this.animTimer % 8 === 0) { 
+                    this.animFrame++;
+                    if (this.animFrame === 3) {
+                        let obs = this.checkObstacleInFront();
+                        if (obs) {
+                            obs.hit(); 
+                        } else {
+                            spawnEnemyBullet(this); 
+                        }
+                    }
+                    if (this.animFrame > 5) {
+                         this.actionState = 'idle';
+                         this.animFrame = 1;
+                         this.chargeTimer = 0; 
+                         // 攻击结束后随机选择移动方向 (startMoving内部会根据当前阻挡情况选择可行方向)
+                         this.startMoving(); 
+                    }
+                }
+                return; 
+            }
+            
+            if (this.actionState === 'move' || this.actionState === 'idle') {
+                if (this.animTimer % 10 === 0) {
+                    this.animFrame++;
+                    if (this.animFrame > 4) this.animFrame = 1; 
+                }
+            }
+
+            if (this.actionState === 'move') {
                 let arrived = false;
                 if (this.x < this.targetX) { this.x += this.moveSpeed; if(this.x >= this.targetX) arrived=true; }
                 else if (this.x > this.targetX) { this.x -= this.moveSpeed; if(this.x <= this.targetX) arrived=true; }
@@ -626,59 +947,304 @@
                     this.stepsRemaining--;
                     if (this.stepsRemaining > 0) {
                         this.setNextTarget();
-                        if (this.targetX === this.x && this.targetY === this.y) this.planNextMove(); 
                     } else {
-                        this.planNextMove();
+                        this.actionState = 'idle';
+                        this.waitTimer = 30 + Math.floor(Math.random() * 120); 
                     }
+                }
+            } else if (this.actionState === 'idle') {
+                this.waitTimer--;
+                if (this.waitTimer <= 0) {
+                    this.startMoving();
                 }
             }
 
             if (this.y > 0) {
                 this.chargeTimer++;
+                // 蓄力满后触发攻击
                 if (this.chargeTimer >= this.chargeMax) {
-                    spawnEnemyBullet(this);
-                    this.chargeTimer = 0;
-                    this.chargeMax = 120 + Math.random() * 180; 
+                    this.actionState = 'attack';
+                    this.animFrame = 1;
+                    this.animTimer = 0;
                 }
             }
 
-            if (this.row >= 13 && this.col >= 3 && this.col <= 5) gameOver();
+            if (this.row >= ROWS - 3) gameOver();
             if (this.y > canvas.height) this.markedForDeletion = true;
         }
 
+        checkObstacleInFront() {
+            let dCol = 0, dRow = 0;
+            if (this.direction === 0) dRow = -1;
+            if (this.direction === 1) dCol = 1;
+            if (this.direction === 2) dRow = 1;
+            if (this.direction === 3) dCol = -1;
+            let nextC = this.col + dCol; let nextR = this.row + dRow;
+            return obstacles.find(o => o.col === nextC && o.row === nextR);
+        }
+
+        startMoving() {
+            let steps = 1 + Math.floor(Math.random() * 5);
+            this.stepsRemaining = steps;
+            
+            let possibleDirs = [];
+            const checkDir = (d, dc, dr) => {
+                 let nc = this.col + dc; let nr = this.row + dr;
+                 if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) return false;
+                 if (obstacles.some(o => o.col === nc && o.row === nr)) return 'blocked';
+                 return 'free';
+            };
+
+            let res1 = checkDir(1, 1, 0);
+            let res2 = checkDir(2, 0, 1);
+            let res3 = checkDir(3, -1, 0);
+
+            if (res1 === 'free') possibleDirs.push(1);
+            if (res2 === 'free') possibleDirs.push(2, 2, 2, 2, 2); 
+            if (res3 === 'free') possibleDirs.push(3);
+
+            if (possibleDirs.length === 0) {
+                this.actionState = 'idle';
+                this.waitTimer = 60;
+            } else {
+                this.direction = possibleDirs[Math.floor(Math.random() * possibleDirs.length)];
+                this.actionState = 'move';
+                this.animFrame = 1; 
+                this.setNextTarget();
+            }
+        }
+
+        setNextTarget() {
+            let dCol = 0, dRow = 0;
+            if (this.direction === 0) this.direction = 2; 
+
+            if (this.direction === 0) dRow = -1;
+            if (this.direction === 1) dCol = 1;
+            if (this.direction === 2) dRow = 1;
+            if (this.direction === 3) dCol = -1;
+            let nextC = this.col + dCol; let nextR = this.row + dRow;
+            
+            let blockedByObstacle = obstacles.some(o => o.col === nextC && o.row === nextR);
+
+            if (canWalk(nextC, nextR)) {
+                this.targetX = nextC * GRID_SIZE; this.targetY = nextR * GRID_SIZE;
+            } else {
+                if (blockedByObstacle) {
+                    // 遇到地图阻挡物时触发一次完整攻击
+                    this.actionState = 'attack';
+                    this.animFrame = 1;
+                    this.animTimer = 0;
+                    // 攻击后强制结束本次移动序列，进入Idle后重新startMoving
+                    this.stepsRemaining = 0; 
+                } else {
+                    this.targetX = this.x; this.targetY = this.y;
+                    this.stepsRemaining = 0;
+                    this.actionState = 'idle';
+                    this.waitTimer = 30 + Math.random() * 30;
+                }
+            }
+        }
+
         draw() {
-            let img = assets['enemy1.png'];
+            let prefix = 'enemy_run'; 
+            if (this.actionState === 'attack') prefix = 'enemy_attack'; 
+            if (this.actionState === 'die') prefix = 'enemy_die';
+
+            let imgName = `${prefix}0${this.animFrame}.png`;
+            let img = assets[imgName];
+
             ctx.save();
             ctx.translate(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2);
-            let angle = 0;
-            if (this.direction === 0) angle = Math.PI;
-            if (this.direction === 1) angle = -Math.PI/2;
-            if (this.direction === 2) angle = 0;
-            if (this.direction === 3) angle = Math.PI/2;
-            ctx.rotate(angle);
-            if (img) ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
-            else { ctx.fillStyle = 'red'; ctx.fillRect(-GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE); }
+            
+            if (gameState.isFrozen && this.actionState !== 'die') {
+                ctx.filter = "saturate(30%) brightness(130%)";
+            }
+
+            if (this.actionState !== 'die') {
+                let angle = 0;
+                if (this.direction === 0) angle = Math.PI;
+                if (this.direction === 1) angle = -Math.PI/2;
+                if (this.direction === 2) angle = 0;
+                if (this.direction === 3) angle = Math.PI/2;
+                ctx.rotate(angle);
+            }
+            if (img) {
+                ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
+            } else { 
+                ctx.fillStyle = 'red'; ctx.fillRect(-20, -20, 40, 40); 
+            }
             ctx.restore();
 
-            if (this.chargeMax > 0) {
-                let pct = this.chargeTimer / this.chargeMax;
-                ctx.fillStyle = '#333';
-                ctx.fillRect(this.x + 5, this.y + GRID_SIZE - 5, 30, 4);
-                ctx.fillStyle = '#ffeb3b';
-                ctx.fillRect(this.x + 5, this.y + GRID_SIZE - 5, 30 * pct, 4);
+            if (this.actionState !== 'die' && this.chargeTimer > 0 && this.actionState !== 'attack') {
+                let pct = Math.min(this.chargeTimer / this.chargeMax, 1);
+                let barX = this.x + 5; let barY = this.y - 10;
+                let barW = 30; let barH = 4;
+                ctx.fillStyle = '#333'; ctx.fillRect(barX, barY, barW, barH);
+                ctx.fillStyle = '#ffeb3b'; ctx.fillRect(barX, barY, barW * pct, barH);
+                // 只要开始蓄力（大于0）就显示提示
+                if (this.chargeTimer > 0) {
+                    ctx.fillStyle = "#ff5252"; ctx.font = "bold 12px SimHei";
+                    ctx.textAlign = "left"; ctx.fillText("蓄力", barX + barW + 2, barY + 6);
+                }
+            }
+        }
+    }
+
+    class MysticNPC extends Entity {
+        constructor() {
+            let startSide = Math.random() < 0.5 ? -1 : 1;
+            let startX = startSide === -1 ? -60 : canvas.width;
+            let startY = GRID_SIZE; 
+            
+            super(0, 0, GRID_SIZE, GRID_SIZE);
+            this.x = startX; this.y = startY;
+            this.moveSpeed = 0.5; 
+            this.actionState = 'walk'; 
+            this.targetX = Math.random() * canvas.width;
+            this.targetY = GRID_SIZE; 
+            this.arrivedAtPlayer = false;
+            this.hitPauseTimer = 0; 
+            
+            this.fullDialogText = "";
+            this.displayedDialog = "";
+            this.dialogTimer = 0;
+            this.dialogStep = 0; 
+        }
+
+        update() {
+            if (gameState.npcInteractionActive) {
+                if (this.actionState === 'catch_pause') {
+                    this.hitPauseTimer++;
+                    this.displayedDialog = "哎呦。。。";
+                    if (this.hitPauseTimer > 60) { 
+                        this.actionState = 'catch_walk';
+                        this.displayedDialog = ""; 
+                    }
+                    return;
+                }
+                
+                if (this.actionState === 'catch_walk') {
+                    let dx = player.x - this.x;
+                    let dy = (player.y - GRID_SIZE) - this.y; 
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist > 5) {
+                        this.x += (dx/dist) * 2;
+                        this.y += (dy/dist) * 2;
+                    } else {
+                        this.actionState = 'catch_arrive';
+                        this.arrivedAtPlayer = true;
+                        this.dialogStep = 0;
+                        this.startNextSentence();
+                    }
+                }
+                
+                if (this.actionState === 'catch_arrive') {
+                    if (this.dialogStep > 3) return; 
+
+                    if (this.displayedDialog.length < this.fullDialogText.length) {
+                        if (this.dialogTimer % 3 === 0) { 
+                            this.displayedDialog += this.fullDialogText[this.displayedDialog.length];
+                        }
+                        this.dialogTimer++;
+                    } else {
+                        this.dialogTimer++;
+                        if (this.dialogTimer > 120) { 
+                            this.startNextSentence();
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (this.actionState === 'walk') {
+                let dx = this.targetX - this.x;
+                let dy = this.targetY - this.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist > 5) {
+                    this.x += (dx/dist) * this.moveSpeed;
+                    this.y += (dy/dist) * this.moveSpeed;
+                } else {
+                    this.targetX = Math.random() * canvas.width;
+                    this.targetY = GRID_SIZE;
+                }
+            }
+        }
+
+        startNextSentence() {
+            this.dialogTimer = 0;
+            if (this.dialogStep === 0) {
+                this.fullDialogText = "年轻人，你丢的是这个金镰刀，";
+                this.displayedDialog = "";
+                this.dialogStep++;
+            } else if (this.dialogStep === 1) {
+                this.fullDialogText = "还是银镰刀，";
+                this.displayedDialog = "";
+                this.dialogStep++;
+            } else if (this.dialogStep === 2) {
+                this.fullDialogText = "还是。。。这个生锈的旧镰刀？";
+                this.displayedDialog = "";
+                this.dialogStep++;
+            } else if (this.dialogStep === 3) {
+                this.displayedDialog = "";
+                this.dialogStep++; 
+                document.getElementById('selection-panel').style.display = 'flex';
+            }
+        }
+
+        onHit() {
+            if (!gameState.npcInteractionActive) {
+                gameState.npcInteractionActive = true;
+                this.actionState = 'catch_pause'; 
+                this.hitPauseTimer = 0;
+                enemies = [];
+                projectiles = [];
+                this.arrivedAtPlayer = false;
+                document.getElementById('npc-dialogue-layer').style.display = 'block';
+            }
+        }
+
+        draw() {
+            let imgName = (this.actionState === 'catch_pause' || this.actionState === 'catch_walk' || this.actionState === 'catch_arrive') ? 'NPC01.png' : 'NPC.png';
+            let img = assets[imgName];
+            
+            ctx.save();
+            ctx.translate(this.x + GRID_SIZE/2, this.y + GRID_SIZE/2);
+            if (img) ctx.drawImage(img, -VISUAL_SIZE/2, -VISUAL_SIZE/2, VISUAL_SIZE, VISUAL_SIZE);
+            else { ctx.fillStyle = 'purple'; ctx.fillRect(-20,-20,40,40); }
+            
+            ctx.fillStyle = "#FFD700";
+            ctx.font = "bold 14px SimHei";
+            ctx.textAlign = "center";
+            ctx.shadowColor = "black";
+            ctx.shadowBlur = 3;
+            ctx.fillText("神秘仙人", 0, VISUAL_SIZE/2 + 10);
+            ctx.restore();
+
+            if (this.displayedDialog) {
+                let npcBubble = document.getElementById('npc-bubble');
+                npcBubble.innerText = this.displayedDialog;
+                npcBubble.style.display = 'block';
+                
+                let bubbleLeft = this.x + GRID_SIZE/2;
+                let bubbleTop = this.y - 15; 
+                
+                npcBubble.style.left = bubbleLeft + 'px';
+                npcBubble.style.top = bubbleTop + 'px';
+                npcBubble.style.transform = "translate(-50%, -100%)"; 
+            } else {
+                document.getElementById('npc-bubble').style.display = 'none';
             }
         }
     }
 
     class Projectile extends Entity {
-        constructor(x, y, dx, dy, type, isPiercing = false, imgName = null) {
-            super(0, 0, 30, 30);
+        constructor(x, y, dx, dy, type, isPiercing = false, imgName = null, size = GRID_SIZE) {
+            super(0, 0, size, size); 
             this.x = x; this.y = y; this.dx = dx; this.dy = dy;
             this.type = type; this.angle = 0; 
             this.isPiercing = isPiercing;
             this.imgName = imgName;
-            
-            // 飞行音效
+            this.size = size;
             if (this.type === 'scythe') {
                 this.sound = null;
                 if(audioAssets['feixing.mp3']) {
@@ -694,25 +1260,28 @@
             if (this.type === 'scythe') {
                 this.angle += this.isPiercing ? 0.6 : 0.3;
             } else {
-                if (Math.abs(this.dx) > Math.abs(this.dy)) this.angle = (this.dx > 0) ? -Math.PI/2 : Math.PI/2;
-                else this.angle = (this.dy > 0) ? Math.PI : 0;
+                if (Math.abs(this.dx) > Math.abs(this.dy)) {
+                    this.angle = (this.dx > 0) ? Math.PI / 2 : -Math.PI / 2;
+                } else {
+                    this.angle = (this.dy > 0) ? Math.PI : 0;
+                }
             }
             if (this.x < -50 || this.x > canvas.width + 50 || this.y < -50 || this.y > canvas.height + 50) this.markedForDeletion = true;
         }
         draw() {
             ctx.save();
-            ctx.translate(this.x, this.y);
+            ctx.translate(this.x + this.size/2, this.y + this.size/2);
             ctx.rotate(this.angle);
             
             let finalImgName = this.imgName;
             if (!finalImgName) finalImgName = (this.type === 'arrow') ? 'bullet1.png' : 'scythe.png';
             let img = assets[finalImgName];
             if (!img && this.type === 'scythe') img = assets['scythe.png'];
-
+            
             if (this.type === 'arrow') {
                 if(img) ctx.drawImage(img, -6, -15, 12, 30);
             } else {
-                if(img) ctx.drawImage(img, -15, -15, 30, 30);
+                if(img) ctx.drawImage(img, -this.size/2, -this.size/2, this.size, this.size);
             }
             ctx.restore();
         }
@@ -723,18 +1292,54 @@
 
     class PowerUp extends Entity {
         constructor(x, y) {
-            super(0, 0, 30, 30);
-            this.x = x; this.y = y;
-            this.timer = 0;
-            this.offsetY = 0;
+            super(0, 0, 35, 35);
+            this.x = x; this.y = y; this.timer = 0; this.offsetY = 0;
+            this.pickupDelay = 45; 
         }
-        update() { this.timer += 0.1; this.offsetY = Math.sin(this.timer) * 5; }
+        update() { 
+            this.timer += 0.1; this.offsetY = Math.sin(this.timer) * 5; 
+            if(this.pickupDelay > 0) this.pickupDelay--;
+        }
         draw() {
             let img = assets['powerup.png'];
             let drawY = this.y + this.offsetY;
-            if(img) ctx.drawImage(img, this.x - 15, drawY - 15, 30, 30);
+            
+            ctx.save();
+            if (this.pickupDelay > 0) ctx.globalAlpha = 0.6; 
+            if(img) ctx.drawImage(img, this.x - 17.5, drawY - 17.5, 35, 35);
             ctx.font = '10px "SimHei"'; ctx.fillStyle = '#ff00ff'; ctx.textAlign = 'center';
-            ctx.fillText("穿透攻击", this.x, drawY + 25);
+            ctx.fillText("穿透攻击", this.x, drawY + 28);
+            ctx.restore();
+        }
+    }
+
+    class FrozenPowerUp extends Entity {
+        constructor(x, y) {
+            super(0, 0, 35, 35);
+            this.x = x; this.y = y; this.timer = 0; this.offsetY = 0;
+            this.pickupDelay = 45; 
+        }
+        update() { 
+            this.timer += 0.1; this.offsetY = Math.sin(this.timer) * 5; 
+            if(this.pickupDelay > 0) this.pickupDelay--;
+        }
+        draw() {
+            let drawY = this.y + this.offsetY;
+            ctx.save();
+            if (this.pickupDelay > 0) ctx.globalAlpha = 0.6; 
+            
+            ctx.font = "46px Arial"; 
+            ctx.fillStyle = "#00e5ff";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.shadowColor = "#00e5ff";
+            ctx.shadowBlur = 10;
+            ctx.fillText("❄️", this.x, drawY);
+            ctx.shadowBlur = 0;
+            
+            ctx.font = '10px "SimHei"'; ctx.fillStyle = '#00e5ff'; ctx.textAlign = 'center'; ctx.textBaseline = "alphabetic";
+            ctx.fillText("全屏冰冻", this.x, drawY + 35);
+            ctx.restore();
         }
     }
 
@@ -744,11 +1349,12 @@
             this.type = type; 
             this.widthTiles = widthTiles; this.heightTiles = heightTiles;
             if (type === 'juma') { this.hp = 5; this.maxHp = 5; }
-            else if (type === 'base') { this.hp = 999; this.maxHp = 999; }
-            else { this.hp = 3; this.maxHp = 3; }
+            else { this.hp = 3; this.maxHp = 3; } 
+            
+            this.spawnTimer = 20; 
+            this.angle = 0; // 增加旋转角度
         }
         hit() {
-            if (this.type === 'base') return; 
             this.hp--;
             playSound('dong.mp3');
             if (this.hp <= 0) this.markedForDeletion = true;
@@ -757,12 +1363,31 @@
             let imgName = '';
             if (this.type === 'straw') imgName = 'straw.png';
             else if (this.type === 'juma') imgName = 'juma.png';
-            else if (this.type === 'base') imgName = gameState.baseLevel === 1 ? 'base.png' : 'base2.png';
             let img = assets[imgName];
-            if (img) ctx.drawImage(img, this.x, this.y, this.width, this.height);
-            else { ctx.fillStyle = 'brown'; ctx.fillRect(this.x, this.y, this.width, this.height); }
+            
+            ctx.save();
+            ctx.translate(this.x + this.width/2, this.y + this.height/2);
 
-            if (this.type !== 'base' && this.hp < this.maxHp || this.type === 'juma') {
+            if (this.angle !== 0) ctx.rotate(this.angle); // 应用旋转
+
+            if (this.spawnTimer > 0) {
+                this.spawnTimer--;
+                let scale = 1 + Math.sin(this.spawnTimer * 0.5) * 0.3; 
+                ctx.scale(scale, scale);
+            }
+            
+            if (gameState.isFrozen) {
+                 ctx.filter = "saturate(30%) brightness(130%)";
+            }
+
+            if (this.type === 'straw') ctx.globalAlpha = 0.9; 
+            if (img) {
+                ctx.drawImage(img, -this.width/2, -this.height/2, this.width, this.height);
+            }
+            else { ctx.fillStyle = 'brown'; ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height); }
+            ctx.restore();
+
+            if (this.hp < this.maxHp || this.type === 'juma') {
                 let boxW = 6; let gap = 2;
                 let startX = this.x + (this.width - (this.maxHp * (boxW+gap))) / 2;
                 for (let i=0; i<this.maxHp; i++) {
@@ -775,10 +1400,11 @@
 
     class Coin extends Entity {
         constructor(x, y) {
-            super(0, 0, 20, 20);
+            super(0, 0, 24, 24);
             this.x = x; this.y = y;
             this.vx = (Math.random() - 0.5) * 5; this.vy = (Math.random() - 0.5) * 5;
             this.state = 'drop'; this.timer = 0;
+            this.pickupDelay = 45; 
         }
         update() {
             if (this.state === 'drop') {
@@ -787,21 +1413,25 @@
                 this.timer++;
                 if (this.timer > 30) this.state = 'fly';
             } else {
-                let tx = (COLS - 3 + 1.5) * GRID_SIZE;
-                let ty = (ROWS - 3 + 1.5) * GRID_SIZE;
+            }
+            if (this.pickupDelay > 0) this.pickupDelay--;
+            
+            if (this.state === 'fly' && this.pickupDelay <= 0) {
+                let tx = 20; let ty = 40; 
                 let dx = tx - this.x; let dy = ty - this.y;
                 let dist = Math.sqrt(dx*dx + dy*dy);
                 this.x += (dx / dist) * 12; this.y += (dy / dist) * 12;
-                if (dist < 20) { collectCoin(); this.markedForDeletion = true; }
+                if (dist < 20) { updateUI(); this.markedForDeletion = true; }
             }
         }
         draw() {
             let img = assets['coin.png'];
-            if(img) ctx.drawImage(img, this.x - 10, this.y - 10, 20, 20);
+            ctx.save();
+            if(img) ctx.drawImage(img, this.x - 12, this.y - 12, 24, 24);
+            ctx.restore();
         }
     }
 
-    // --- 全局 ---
     let player;
     let enemies = [];
     let projectiles = [];
@@ -810,37 +1440,79 @@
     let items = [];
     let wheatFields = [];
     let grainParticles = [];
-    let baseEffects = { scale: 1, brightness: 100 };
 
     function initLevel() {
         player = new Player();
         enemies = []; projectiles = []; obstacles = []; coins = []; items = [];
         wheatFields = []; grainParticles = [];
-        gameState.score = 0; gameState.baseLevel = 1; gameState.globalFrame = 0;
-        gameState.nextGrowthWaveTime = 0; // 初始化生长波次
+        gameState.score = 0; gameState.wheatCollected = 0; 
+        gameState.globalFrame = 0;
+        gameState.nextGrowthWaveTime = 0; 
+        gameState.isSowingPhase = false;
         
-        document.getElementById('hp-display').innerText = "❤️ 生命: 10";
-        document.getElementById('gold-display').innerText = "💰 粮食: 0";
+        gameState.isWaitingForSpring = false;
+        gameState.springTimer = 0;
+        
+        gameState.npcSpawned = false;
+        gameState.npcInteractionActive = false;
+        npcInstance = null;
+        gameState.harvestCycleCount = 0; 
+        
+        gameState.nextFrozenDropTime = Date.now() + Math.random() * 60000;
+        gameState.isFrozen = false;
+        gameState.frozenTimer = 0;
 
-        obstacles.push(new Obstacle(3, 12, 'juma'));
-        obstacles.push(new Obstacle(4, 12, 'juma'));
-        obstacles.push(new Obstacle(5, 12, 'juma'));
-        for(let r=13; r<=15; r++) {
-            obstacles.push(new Obstacle(2, r, 'juma'));
-            obstacles.push(new Obstacle(6, r, 'juma'));
-        }
-        obstacles.push(new Obstacle(COLS-3, ROWS-3, 'base', 3, 3));
-        for (let r = 2; r < 10; r++) {
-            for (let c = 0; c < COLS; c++) {
-                if(c===4 && r===10) continue;
-                if (Math.random() < 0.15) obstacles.push(new Obstacle(c, r, 'straw'));
-            }
-        }
-        for(let r=13; r<ROWS; r++){
-            for(let c=3; c<=5; c++){
+        updateUI();
+        updateBuildBtn();
+
+        let midC = Math.floor(COLS/2);
+        let startR = ROWS - 3; 
+
+        for(let r=startR; r<ROWS; r++){
+            for(let c=midC-1; c<=midC+1; c++){
                 wheatFields.push(new Wheat(c, r));
             }
         }
+
+        jumaLocations = [];
+
+        function addJuma(c, r, rotate = false) {
+            let obs = new Obstacle(c, r, 'juma');
+            if (rotate) obs.angle = Math.PI / 2; // 旋转90度
+            obstacles.push(obs);
+            jumaLocations.push({c: c, r: r});
+        }
+
+        // 最上方一排（startR - 1）设置为旋转
+        for(let c=midC-1; c<=midC+1; c++) addJuma(c, startR-1, true);
+        
+        for(let r=startR; r<ROWS; r++) {
+            addJuma(midC-2, r);
+            addJuma(midC+2, r);
+        }
+        
+        for (let r = 2; r < startR-1; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (Math.random() < 0.15) obstacles.push(new Obstacle(c, r, 'straw'));
+            }
+        }
+
+        obstacles = obstacles.filter(o => !(o.col === COLS-1 && o.row === ROWS-4));
+        obstacles = obstacles.filter(o => !(o.col === midC+2 && o.row === ROWS-1));
+        
+        jumaLocations = jumaLocations.filter(loc => !(loc.c === midC+2 && loc.r === ROWS-1));
+
+        let jumaRow = startR - 1;
+        let yPos = jumaRow * GRID_SIZE - 20; 
+        document.getElementById('action-hint').style.top = yPos + 'px';
+    }
+
+    function updateUI() {
+        if(gameState.running && !gameState.npcInteractionActive) {
+            gameState.score += 10;
+        }
+        document.getElementById('gold-display').innerText = gameState.score;
+        document.getElementById('wheat-display').innerText = gameState.wheatCollected;
     }
 
     function spawnEnemyBullet(enemy) {
@@ -849,7 +1521,7 @@
         if (enemy.direction === 1) dx = speed;
         if (enemy.direction === 2) dy = speed;
         if (enemy.direction === 3) dx = -speed;
-        projectiles.push(new Projectile(enemy.x+GRID_SIZE/2, enemy.y+GRID_SIZE/2, dx, dy, 'arrow'));
+        projectiles.push(new Projectile(enemy.x, enemy.y, dx, dy, 'arrow'));
     }
 
     function canWalk(col, row) {
@@ -866,30 +1538,43 @@
     function checkCollisions() {
         let pRect = { x: player.x, y: player.y, w: GRID_SIZE, h: GRID_SIZE };
         items.forEach(it => {
+            if (it.pickupDelay > 0) return; 
+
             let itRect = { x: it.x - 15, y: it.y - 15, w: 30, h: 30 };
             if (isColliding(pRect, itRect)) {
                 it.markedForDeletion = true;
-                player.hasPiercing = true;
-                player.piercingTimer = 600; 
+                if (it instanceof FrozenPowerUp) {
+                    gameState.isFrozen = true;
+                    gameState.frozenTimer = 480; 
+                } else {
+                    player.hasPiercing = true;
+                    player.piercingTimer = 600; 
+                }
             }
         });
         items = items.filter(i => !i.markedForDeletion);
 
         projectiles.forEach(p => {
             if (p.markedForDeletion) return;
-            let rect1 = { x: p.x - 10, y: p.y - 10, w: 20, h: 20 };
+            let pSize = p.size || GRID_SIZE; 
+            let rect1 = { x: p.x, y: p.y, w: pSize, h: pSize };
             
             if (p.type === 'scythe') {
+                if (npcInstance && !gameState.npcInteractionActive) {
+                    let npcRect = { x: npcInstance.x, y: npcInstance.y, w: GRID_SIZE, h: GRID_SIZE };
+                    if (isColliding(rect1, npcRect)) {
+                        npcInstance.onHit();
+                        p.markedForDeletion = true; 
+                        return;
+                    }
+                }
+
                 enemies.forEach(e => {
+                    if (e.actionState === 'die') return;
                     if (isColliding(rect1, e)) {
-                        e.markedForDeletion = true;
+                        e.hp--;
+                        if (e.hp <= 0) e.die(); 
                         if (!p.isPiercing) p.markedForDeletion = true; else p.destroy(); 
-                        playSound('death.mp3');
-                        if (Math.random() < 0.05) { 
-                            items.push(new PowerUp(e.x + GRID_SIZE/2, e.y + GRID_SIZE/2));
-                        } else {
-                            coins.push(new Coin(e.x + GRID_SIZE/2, e.y + GRID_SIZE/2));
-                        }
                     }
                 });
                 obstacles.forEach(o => {
@@ -908,7 +1593,7 @@
                 obstacles.forEach(o => { 
                     if (isColliding(rect1, o)) {
                         p.markedForDeletion = true;
-                        if (o.type !== 'base') o.hit();
+                        o.hit();
                     }
                 });
             }
@@ -922,48 +1607,171 @@
                 rect1.y < r2y + r2h && rect1.y + rect1.h > r2y);
     }
 
-    function collectCoin() {
-        gameState.score += 10;
-        document.getElementById('gold-display').innerText = "💰 粮食: " + gameState.score;
-        baseEffects.scale = 1.1; baseEffects.brightness = 150;
-        if (gameState.score >= gameState.upgradeThreshold && gameState.baseLevel === 1) {
-            gameState.baseLevel = 2; gameState.upgradeThreshold *= 2; 
-        }
-    }
-
     function gameOver() {
         gameState.running = false; gameState.gameOver = true;
-        document.getElementById('final-score').innerText = gameState.score;
-        document.getElementById('game-over-screen').style.display = 'flex';
-        // 游戏结束停止背景音乐 (可选)
+        if (audioAssets['BG.mp3']) audioAssets['BG.mp3'].pause();
+        
+        document.getElementById('res-gold').innerText = gameState.score;
+        document.getElementById('res-wheat').innerText = gameState.wheatCollected;
+        
+        document.getElementById('result-screen').style.display = 'flex';
+    }
+
+    window.chooseScythe = function(choice) {
+        let feedback = document.getElementById('npc-feedback');
+        let title = document.getElementById('selection-title');
+        let opts = document.getElementById('scythe-opts');
+        let dlBtn = document.getElementById('download-btn');
+        let icon = document.getElementById('chosen-icon');
+
+        opts.style.display = 'none';
+        
+        feedback.style.display = 'block';
+        icon.style.display = 'block';
+
+        if (choice === 1) {
+            title.innerText = "生锈的镰刀"; 
+            icon.src = "scythe01.png";
+            feedback.innerText = "本分务实。\n\n您将朋友遍天下，成为一方受人爱戴的领主。";
+        }
+        if (choice === 2) {
+            title.innerText = "银镰刀"; 
+            icon.src = "scythe02.png";
+            feedback.innerText = "锋利如刃。\n\n您将在游戏里征战天下，所向披靡，无人能挡。";
+        }
+        if (choice === 3) {
+            title.innerText = "金镰刀"; 
+            icon.src = "scythe03.png";
+            feedback.innerText = "志在财富。\n\n您将获得一展商业才华的机会，最终富甲天下。";
+        }
+        
+        dlBtn.style.display = 'block';
+    };
+
+    function drawEnvironmentLayer() {
+        jumaLocations.forEach(loc => {
+            let x = loc.c * GRID_SIZE;
+            let y = loc.r * GRID_SIZE;
+            let s = GRID_SIZE;
+            let lineLen = 10;
+            
+            ctx.strokeStyle = "rgba(255, 215, 0, 0.3)";
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath(); ctx.moveTo(x, y + lineLen); ctx.lineTo(x, y); ctx.lineTo(x + lineLen, y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x + s - lineLen, y); ctx.lineTo(x + s, y); ctx.lineTo(x + s, y + lineLen); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y + s - lineLen, y + s); ctx.lineTo(x, y + s); ctx.lineTo(x + lineLen, y + s); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x + s - lineLen, y + s); ctx.lineTo(x + s, y + s); ctx.lineTo(x + s, y + s - lineLen); ctx.stroke();
+        });
     }
 
     function loop() {
         if (!gameState.running) return;
+        
+        if (!gameState.npcSpawned && gameState.harvestCycleCount >= 2) {
+            gameState.npcSpawned = true;
+            npcInstance = new MysticNPC();
+        }
+
+        if (gameState.npcInteractionActive) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (assets['BG.png']) ctx.drawImage(assets['BG.png'], 0, 0, canvas.width, canvas.height);
+            else { ctx.fillStyle = '#4e342e'; ctx.fillRect(0,0,canvas.width, canvas.height); }
+
+            wheatFields.forEach(w => w.draw());
+            obstacles.forEach(o => o.draw());
+            player.draw();
+            if(npcInstance) {
+                npcInstance.update(); 
+                npcInstance.draw();
+            }
+            requestAnimationFrame(loop);
+            return;
+        }
+
         gameState.globalFrame++;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (assets['BG.png']) ctx.drawImage(assets['BG.png'], 0, 0, canvas.width, canvas.height);
+        if (assets['BG.png']) {
+            ctx.drawImage(assets['BG.png'], 0, 0, canvas.width, canvas.height);
+        }
         else { ctx.fillStyle = '#4e342e'; ctx.fillRect(0,0,canvas.width, canvas.height); }
 
-        // 生长波次更新
-        if (gameState.globalFrame > gameState.nextGrowthWaveTime + 3600) {
-            gameState.nextGrowthWaveTime = gameState.globalFrame;
+        drawEnvironmentLayer();
+
+        if (gameState.isFrozen) {
+            gameState.frozenTimer--;
+            if (gameState.frozenTimer <= 0) {
+                gameState.isFrozen = false;
+            }
+        }
+
+        let allHarvested = wheatFields.every(w => w.isHarvested);
+        let actionHint = document.getElementById('action-hint');
+        let hintText = document.getElementById('hint-text');
+        let timerText = document.getElementById('spring-timer');
+
+        if (allHarvested && !gameState.isSowingPhase && !gameState.isWaitingForSpring) {
+            gameState.isWaitingForSpring = true;
+            gameState.springTimer = 30 * 60; 
+            hintText.innerText = "春耕倒计时";
+            hintText.style.fontSize = "22px";
+            actionHint.style.display = "block";
+            
+            gameState.harvestCycleCount++;
+        }
+
+        if (gameState.isWaitingForSpring) {
+            gameState.springTimer--;
+            let daysLeft = Math.ceil(gameState.springTimer / 60);
+            timerText.innerText = daysLeft + "天";
+            
+            if (gameState.springTimer <= 0) {
+                gameState.isWaitingForSpring = false;
+                gameState.isSowingPhase = true;
+                timerText.innerText = "";
+                hintText.innerText = "开始播种！";
+                hintText.style.fontSize = "32px";
+            }
+        } else if (gameState.isSowingPhase) {
+            let allSown = wheatFields.every(w => !w.isHarvested && w.stage === 1);
+            if (allSown) {
+                gameState.isSowingPhase = false;
+                actionHint.style.display = "none";
+                gameState.nextGrowthWaveTime = gameState.globalFrame;
+            } else {
+                hintText.innerText = "开始播种！";
+                hintText.style.fontSize = "32px";
+                actionHint.style.display = "block";
+            }
+        } else {
+            let hasMature = wheatFields.some(w => w.stage === 7 && !w.isHarvested);
+            if(hasMature) {
+                hintText.innerText = "麦子熟了！";
+                hintText.style.fontSize = "32px";
+                timerText.innerText = "";
+                actionHint.style.display = 'block';
+            } else {
+                actionHint.style.display = 'none';
+            }
         }
 
         wheatFields.forEach(w => { w.update(); w.draw(); });
-        
-        let hasMature = wheatFields.some(w => w.stage === 7 && !w.isHarvested);
-        document.getElementById('harvest-hint').style.display = hasMature ? 'block' : 'none';
-
         obstacles = obstacles.filter(o => !o.markedForDeletion);
         obstacles.forEach(o => o.draw());
-
-        items.forEach(i => { i.update(); i.draw(); });
 
         if (Math.random() < 0.007 && enemies.length < 8) enemies.push(new Enemy());
         enemies = enemies.filter(e => !e.markedForDeletion);
         enemies.forEach(e => { e.update(); e.draw(); });
+
+        items.forEach(i => { i.update(); i.draw(); });
+        coins = coins.filter(c => !c.markedForDeletion);
+        coins.forEach(c => { c.update(); c.draw(); });
+
+        if (npcInstance) {
+            npcInstance.update();
+            npcInstance.draw();
+        }
 
         player.update();
         player.draw();
@@ -974,45 +1782,36 @@
         });
         projectiles.forEach(p => { p.update(); p.draw(); });
 
-        coins = coins.filter(c => !c.markedForDeletion);
-        coins.forEach(c => { c.update(); c.draw(); });
-
         grainParticles = grainParticles.filter(g => !g.markedForDeletion);
         grainParticles.forEach(g => { g.update(); g.draw(); });
 
         checkCollisions();
-
-        if (baseEffects.scale > 1) baseEffects.scale -= 0.01;
-        if (baseEffects.brightness > 100) baseEffects.brightness -= 2;
         
-        let baseObj = obstacles.find(o => o.type === 'base');
-        if (baseObj) {
-            ctx.save();
-            ctx.translate(baseObj.x + baseObj.width/2, baseObj.y + baseObj.height/2);
-            ctx.scale(baseEffects.scale, baseEffects.scale);
-            ctx.filter = `brightness(${baseEffects.brightness}%)`;
-            let bImgName = gameState.baseLevel === 1 ? 'base.png' : 'base2.png';
-            if(assets[bImgName]) ctx.drawImage(assets[bImgName], -baseObj.width/2, -baseObj.height/2, baseObj.width, baseObj.height);
-            ctx.restore();
+        if (gameState.isFrozen) {
+            ctx.fillStyle = "rgba(100, 200, 255, 0.3)"; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
         requestAnimationFrame(loop);
     }
 
-    function startGame() {
+    window.showTutorial = function() {
         document.getElementById('intro-screen').style.display = 'none';
+        document.getElementById('tutorial-screen').style.display = 'flex';
+    };
+
+    window.startGame = function() {
+        document.getElementById('intro-screen').style.display = 'none';
+        document.getElementById('tutorial-screen').style.display = 'none';
         initLevel();
         gameState.running = true;
-        
-        // 播放背景音乐
         if(audioAssets['BG.mp3']) {
             audioAssets['BG.mp3'].loop = true;
             audioAssets['BG.mp3'].volume = 0.5;
-            audioAssets['BG.mp3'].play();
+            audioAssets['BG.mp3'].play().catch(e=>{});
         }
-        
         loop();
-    }
+    };
 </script>
 </body>
 </html>
